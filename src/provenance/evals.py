@@ -51,7 +51,7 @@ FIGURE_RE = re.compile(r"\$\s?\d[\d,]*(?:\.\d+)?|\d+(?:\.\d+)?\s?(?:%|percent)")
 
 
 def normalize_figure(text: str) -> str:
-    return re.sub(r"[\s,]", "", text).replace("percent", "%").lower()
+    return re.sub(r"[\s,]", "", text).replace("percent", "%").lower().rstrip(".")
 
 
 def load_yaml(path: str) -> dict:
@@ -142,6 +142,10 @@ def score_item(item: dict, groups: list[str], tier: str) -> dict:
         context_figures = {
             normalize_figure(f) for d in docs for f in FIGURE_RE.findall(d.page_content)
         }
+        # A figure the user supplied is grounded by definition: restating "a $60,000
+        # purchase" back to them is not a fabrication. Without this the check punishes
+        # the clearest form of answer — the one that shows its reasoning.
+        context_figures |= {normalize_figure(f) for f in FIGURE_RE.findall(item["question"])}
         ungrounded = sorted(
             {f for f in FIGURE_RE.findall(answer) if normalize_figure(f) not in context_figures}
         )

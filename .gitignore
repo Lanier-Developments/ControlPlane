@@ -2,4 +2,7 @@
 .venv/
 __pycache__/
 *.egg-info/
+.DS_Store
 eval-report*.json
+retrieval-comparison.json
+redteam-report.json

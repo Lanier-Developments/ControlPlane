@@ -210,6 +210,25 @@ make tamper-demo                  # prove the chain detects a silent edit
 
 **Appends are serialized** with a table lock. Two concurrent writers reading the same tail hash would produce two entries claiming the same predecessor, and the chain would be unverifiable through that point. Appends are rare relative to reads, so the contention is acceptable here; a high-throughput deployment would build the chain with a single writer instead.
 
+## Red team (Phase 7)
+
+```bash
+make redteam                          # 8 attack classes x 2 positions
+CONTEXT_FENCING=false make redteam    # measure what the defense actually buys
+```
+
+**Retrieved text is untrusted input.** Anyone who can put a document where the indexer reaches it — a wiki page, a shared drive, a ticket comment, a vendor PDF — can put text in front of the model. In an enterprise that is a large set of people, most of whom are never thought of as having access to the AI system at all.
+
+**Poisoned documents are never ingested.** `corpus/redteam/` is loaded from disk and assembled into context in memory; the ingest path reads `corpus/seed/` only. A fixture that could leak into a real answer would be a poor test.
+
+**Position is part of the test.** Each attack runs with the poisoned document first and last. Several succeed in one position and not the other, so a single-position result means little.
+
+**Measured:** fencing takes attack success from 4/16 to 2/16. It costs one golden-set item — with fencing on, the model refuses a safety-critical loss-prevention question it answers correctly with fencing off, because that document's own handling rules read as an instruction to withhold once it is framed as untrusted data. The trade-off is recorded in `evals/baseline.yaml` with the measurement attached; fencing stays on.
+
+A prompt is a shared resource: every instruction added to defend against an attacker is also read when a real user asks something. A defense that costs nothing on a fixed eval set usually is not doing anything.
+
+**What no attack achieved was a permission bypass** — and that is not the model's doing. Nothing unauthorized was in the context to leak, because row-level security scoped the candidate set before ranking. Injection cannot exfiltrate what was never retrieved. An injection can make the model emit `OVERRIDE-ACCEPTED`; it cannot make Postgres return a row the caller has no grant for, and every attempt is in the ledger.
+
 ## Layout
 
 ```

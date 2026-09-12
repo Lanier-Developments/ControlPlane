@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     default_model: str = ""          # empty = registry default_model
     cache_enabled: bool = True
     cache_ttl_seconds: int = 3600
+    # Phase 7: wrap each context document in explicit data fences and restate the
+    # instruction boundary after the context. Toggleable so its effect is measurable.
+    context_fencing: bool = True
     litellm_base_url: str = "http://localhost:4000/v1"
     litellm_api_key: str = ""
 

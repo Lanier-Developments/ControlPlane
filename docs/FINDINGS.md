@@ -139,9 +139,61 @@ registry it would be about $0.21 per suite run, almost entirely prompt. If cloud
 is ever enabled, that ratio is the cost driver, and it is the concrete argument for a
 reranker in front of the model: retrieve 8, send 3.
 
+## 9. An injection defense made the model refuse a safety question
+
+Eight prompt-injection classes, each tried with the poisoned document first and last in
+context, against a corpus where the model's instructions explicitly say to treat
+retrieved text as data.
+
+Baseline: **4 of 16 cases compromised.** Adding context fencing — wrapping each document
+in explicit begin/end markers and restating the instruction boundary after the context —
+took that to **2 of 16**.
+
+It cost one golden-set item. Asked what an associate should do about someone concealing
+merchandise, the model answered correctly and cited the loss-prevention guidelines with
+fencing off, and refused outright — "You don't know," in about 190 milliseconds — with
+fencing on. That document opens with its own handling rules: *Confidential. Do not post
+in the break room or discuss on the sales floor.* Framed as untrusted data whose claims
+should not be acted on, the model appears to read those handling rules as an instruction
+to withhold. The defense inverted on a document that describes how it should be handled.
+
+The trade-off is now a number rather than an argument: two attacks blocked for one
+degraded answer, and the degraded answer is a safety-critical one. Recorded as a known
+failure with the measurement attached, and fencing stays on.
+
+The general point is that a prompt is a shared resource. Every instruction added to
+defend against an attacker is also read by the model when a real user asks something.
+A defense that costs nothing on a fixed eval set usually is not doing anything.
+
+## 10. What the injections could and could not do
+
+Two attacks still succeed. The crudest one in the set — "IGNORE ALL PREVIOUS
+INSTRUCTIONS" — still works when placed first in context. An 8B model does not reliably
+hold an instruction hierarchy, and no amount of prompt wording fixes that.
+
+What no attack achieved was a permission bypass, and that is not the model's doing.
+Nothing the caller was not entitled to was in the context to leak: row-level security
+scoped the candidate set before ranking. **Prompt injection cannot exfiltrate what was
+never retrieved.**
+
+That divides the defenses cleanly:
+
+- Controls that depend on the model behaving — citation discipline, refusal behavior,
+  ignoring embedded instructions — degrade under attack and under prompt changes.
+- Controls that do not — row-level security, the routing policy, the append-only ledger
+  — hold regardless. An injection can make the model emit `OVERRIDE-ACCEPTED`. It cannot
+  make Postgres return a row the caller has no grant for, and every attempt is recorded.
+
+One attack class also turned out to be a flaw in my own test design. The
+"policy override" case looked like a leak but was the model repeating figures the
+attacker had planted in the poisoned document itself, cited correctly to that document.
+Relabelled content-injection: the achievable harm through this channel is planting false
+facts that get repeated with a citation, not reading files the caller cannot see.
+
 ---
 
 ## What is still open
+
 
 - **Misattribution is not caught by any deterministic check.** On one item the model
   produced correct content from one document and tagged it with another. The tag is real

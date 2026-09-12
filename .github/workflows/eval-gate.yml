@@ -1,0 +1,88 @@
+name: eval-gate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tier: [retrieval, full]
+    # Retrieval tier blocks merges. Full tier is advisory until it runs on a real model.
+    continue-on-error: ${{ matrix.tier == 'full' }}
+
+    env:
+      DATABASE_URL: postgresql+psycopg://rag:rag@localhost:5432/rag
+      OLLAMA_BASE_URL: http://localhost:11434
+      EMBED_MODEL: nomic-embed-text
+      LLM_PROVIDER: ollama
+      OLLAMA_CHAT_MODEL: llama3.2:3b
+      MODELS_DIR: /home/runner/ollama-models
+
+    services:
+      db:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: rag
+          POSTGRES_PASSWORD: rag
+          POSTGRES_DB: rag
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U rag -d rag"
+          --health-interval 5s --health-retries 10
+      ollama:
+        image: ollama/ollama
+        ports: ["11434:11434"]
+        volumes:
+          - /home/runner/ollama-models:/root/.ollama
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Restore model cache
+        id: models
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.MODELS_DIR }}
+          key: ollama-${{ env.EMBED_MODEL }}-${{ matrix.tier == 'full' && env.OLLAMA_CHAT_MODEL || 'embed-only' }}
+
+      - name: Pull models
+        run: |
+          pull() { curl -sf "$OLLAMA_BASE_URL/api/pull" -d "{\"model\": \"$1\", \"stream\": false}" > /dev/null; }
+          pull "$EMBED_MODEL"
+          if [ "${{ matrix.tier }}" = "full" ]; then pull "$OLLAMA_CHAT_MODEL"; fi
+
+      - name: Save model cache
+        if: steps.models.outputs.cache-hit != 'true'
+        run: sudo chmod -R a+rX "$MODELS_DIR"
+
+      - if: steps.models.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.MODELS_DIR }}
+          key: ${{ steps.models.outputs.cache-primary-key }}
+
+      - name: Install
+        run: pip install -e .
+
+      - name: Ingest corpus
+        run: python -m provenance.ingest --reset
+
+      - name: Score golden set
+        run: python -m provenance.evals --tier ${{ matrix.tier }} --report eval-report-${{ matrix.tier }}.json
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-report-${{ matrix.tier }}
+          path: eval-report-${{ matrix.tier }}.json

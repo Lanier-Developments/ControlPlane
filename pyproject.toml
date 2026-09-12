@@ -1,0 +1,26 @@
+[project]
+name = "provenance-rag"
+version = "0.1.0"
+description = "Governance-first reference implementation of enterprise RAG"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+dependencies = [
+  "fastapi>=0.110",
+  "uvicorn[standard]>=0.29",
+  "pydantic-settings>=2.2",
+  "python-frontmatter>=1.1",
+  "psycopg[binary]>=3.1",
+  "langchain-core",
+  "langchain-text-splitters",
+  "langchain-postgres",
+  "langchain-ollama",
+  "langchain-aws",
+  "pyyaml>=6",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

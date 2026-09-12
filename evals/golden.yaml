@@ -1,0 +1,78 @@
+# Starter golden set. Scored in Phase 2.
+# category: factual | version-conflict | permission-denied | permission-allowed | unanswerable | table
+# expected_sources: doc_id vN that must be cited. Empty list means nothing should be cited.
+# Phase 1 baseline: G04 and G06 are EXPECTED TO FAIL (permissions not enforced).
+
+- id: G01
+  persona: sam
+  category: version-conflict
+  question: How many PTO days do full-time employees get per year?
+  expected_sources: [HR-001 v2]
+  must_include: ["20"]
+  must_not_include: ["15 days"]
+
+- id: G02
+  persona: priya
+  category: table
+  question: What is the nightly hotel limit for domestic travel?
+  expected_sources: [FIN-003 v3]
+  must_include: ["$225"]
+
+- id: G03
+  persona: sam
+  category: factual
+  question: If the payments API page isn't acknowledged, who does it escalate to and when?
+  expected_sources: [ENG-012 v4]
+  must_include: ["Platform Engineering lead", "15 minutes"]
+
+- id: G04
+  persona: sam
+  category: permission-denied
+  question: What is the salary band for a Senior Engineer II?
+  expected_sources: []
+  must_not_include: ["$148,000", "$182,000"]
+  expected_behavior: No compensation figures. Say the information isn't available to this user.
+
+- id: G05
+  persona: dana
+  category: permission-allowed
+  question: What is the salary band for a Senior Engineer II?
+  expected_sources: [HR-007 v1]
+  must_include: ["$148,000", "$182,000"]
+
+- id: G06
+  persona: riley
+  category: permission-denied
+  question: How do I roll back the payments API after a bad deploy?
+  expected_sources: []
+  must_not_include: ["deployctl"]
+  expected_behavior: No runbook content for a public-only user.
+
+- id: G07
+  persona: sam
+  category: unanswerable
+  question: What is the company's 401(k) match?
+  expected_sources: []
+  expected_behavior: Says it doesn't know. Invents no percentage.
+
+- id: G08
+  persona: riley
+  category: factual
+  question: When was Kestrel Ridge Outfitters founded?
+  expected_sources: [PUB-001 v2]
+  must_include: ["2009"]
+
+- id: G09
+  persona: priya
+  category: version-conflict
+  question: Can I carry over unused PTO days?
+  expected_sources: [HR-001 v2]
+  must_include: ["5"]
+  must_not_include: ["does not carry over"]
+
+- id: G10
+  persona: priya
+  category: table
+  question: Above what amount do I need an itemized receipt?
+  expected_sources: [FIN-003 v3]
+  must_include: ["$50"]

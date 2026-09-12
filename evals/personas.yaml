@@ -1,0 +1,5 @@
+# Machine-readable personas. Keep in sync with corpus/SPEC.md.
+sam:   [public, all-employees, engineering]
+dana:  [public, all-employees, hr-comp]
+priya: [public, all-employees, finance]
+riley: [public]

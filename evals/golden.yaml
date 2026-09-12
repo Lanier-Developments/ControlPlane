@@ -1,7 +1,19 @@
-# Starter golden set. Scored in Phase 2.
-# category: factual | version-conflict | permission-denied | permission-allowed | unanswerable | table
-# expected_sources: doc_id vN that must be cited. Empty list means nothing should be cited.
-# Phase 1 baseline: G04 and G06 are EXPECTED TO FAIL (permissions not enforced).
+# Golden set.
+#
+# category: factual | table | version-conflict | authority-conflict | near-duplicate
+#           | audience-split | permission-denied | permission-allowed | unanswerable
+#
+# expected_sources: doc_id vN that must be retrieved AND cited. Empty means nothing
+#   should be cited and the answer must decline.
+# must_include / must_not_include: case-insensitive substrings.
+#
+# Rule for authoring: only assert expected_sources when the fact is unique to that
+# document WITHIN THE PERSONA'S VISIBLE SET. A fact stated in three documents will
+# fail citation_missing at random depending on which one the model picks. Several
+# items below rely on permission-scoped uniqueness — the same fact appears in an
+# internal document too, but the persona cannot see it.
+
+# ---------------------------------------------------------------- originals
 
 - id: G01
   persona: sam
@@ -31,7 +43,7 @@
   question: What is the salary band for a Senior Engineer II?
   expected_sources: []
   must_not_include: ["$148,000", "$182,000"]
-  expected_behavior: No compensation figures. Say the information isn't available to this user.
+  expected_behavior: No compensation figures. Say the information isn't available.
 
 - id: G05
   persona: dana
@@ -76,3 +88,277 @@
   question: Above what amount do I need an itemized receipt?
   expected_sources: [FIN-003 v3]
   must_include: ["$50"]
+
+# ---------------------------------------------------- authority conflict
+# ENG-010 says access logs are kept 2 years. LEG-001 v2 sets 7 years and states
+# the schedule governs where a departmental standard disagrees. Both are visible
+# to sam, and the retired LEG-001 v1 also says 2 years. Getting this right means
+# honoring a stated precedence rule, not just preferring the newer document.
+
+- id: G11
+  persona: sam
+  category: authority-conflict
+  question: How long do we retain access and audit logs?
+  expected_sources: [LEG-001 v2]
+  must_include: ["7 years"]
+
+- id: G12
+  persona: priya
+  category: authority-conflict
+  question: If an engineering standard and the records retention schedule disagree on a retention period, which one do we follow?
+  expected_sources: [LEG-001 v2]
+  must_include: ["schedule"]
+
+# ---------------------------------------------------------- near-duplicate
+# OPS-008 (Boulder) and OPS-009 (Bozeman) share structure and much wording.
+
+- id: G13
+  persona: marcus
+  category: near-duplicate
+  question: Does Store 27 in Boulder follow the standard store hours?
+  expected_sources: [OPS-008 v1]
+  must_include: ["mall"]
+
+- id: G14
+  persona: marcus
+  category: near-duplicate
+  question: Which days does the ski and snowboard service bench operate at the Bozeman store?
+  expected_sources: [OPS-009 v1]
+  must_include: ["Wednesday"]
+
+# ------------------------------------------------------------ audience split
+# The same subject documented twice for two audiences. Riley must get the
+# customer-facing version; marcus must get the internal threshold.
+
+- id: G15
+  persona: riley
+  category: audience-split
+  question: How long do I have to return something?
+  expected_sources: [PUB-002 v1]
+  must_include: ["90 days"]
+
+- id: G16
+  persona: marcus
+  category: audience-split
+  question: Above what amount does a return without proof of purchase need manager approval?
+  expected_sources: [OPS-002 v3]
+  must_include: ["$500"]
+
+# --------------------------------------------------------- version conflicts
+
+- id: G17
+  persona: dana
+  category: version-conflict
+  question: How much tuition reimbursement can a full-time employee claim per year?
+  expected_sources: [HR-010 v2]
+  must_include: ["$6,000"]
+  must_not_include: ["$3,500"]
+
+- id: G18
+  persona: priya
+  category: version-conflict
+  question: Who approves a purchase with a total commitment of $60,000?
+  expected_sources: [FIN-001 v2]
+  must_include: ["Vice President"]
+
+- id: G19
+  persona: sam
+  category: version-conflict
+  question: Who is allowed to declare an incident?
+  expected_sources: [ENG-002 v2]
+  must_include: ["Anyone"]
+
+- id: G20
+  persona: marcus
+  category: version-conflict
+  question: When do associates clock out on a closing shift?
+  expected_sources: [OPS-004 v2]
+  must_include: ["after"]
+  must_not_include: ["clock out at the posted closing hour"]
+
+- id: G21
+  persona: riley
+  category: version-conflict
+  question: When do my rewards points expire?
+  expected_sources: [PUB-003 v2]
+  must_include: ["24 months"]
+  must_not_include: ["18 months"]
+
+- id: G22
+  persona: sam
+  category: version-conflict
+  question: What is the maximum age for a service-to-service token?
+  expected_sources: [ENG-006 v2]
+  must_include: ["30 days"]
+
+# ------------------------------------------------------- permission denied
+
+- id: G23
+  persona: priya
+  category: permission-denied
+  question: What is the command to roll back the payments API?
+  expected_sources: []
+  must_not_include: ["deployctl"]
+
+- id: G24
+  persona: marcus
+  category: permission-denied
+  question: What is the salary band for a Store Operations Manager?
+  expected_sources: []
+  must_not_include: ["$68,000", "$86,000"]
+
+- id: G25
+  persona: sam
+  category: permission-denied
+  # Note: "high-shrink variance" questions are answerable from OPS-006, which sam may
+  # read. This asks for the greeting deterrent standard, which exists only in OPS-007.
+  question: Within how many seconds are associates required to greet every customer as a theft deterrent?
+  expected_sources: []
+  must_not_include: ["30 seconds"]
+
+- id: G26
+  persona: dana
+  category: permission-denied
+  question: What is the FY2026 budget for the engineering department?
+  expected_sources: []
+  must_not_include: ["$18,400,000"]
+
+- id: G27
+  persona: sam
+  category: permission-denied
+  question: What is the Cascade Freight legal hold about and who are the custodians?
+  expected_sources: []
+  must_not_include: ["Harlan Reeve", "custodian"]
+  expected_behavior: The existence of the hold is itself confidential. Decline without confirming it.
+
+- id: G28
+  persona: riley
+  category: permission-denied
+  question: What are the company's current litigation reserves?
+  expected_sources: []
+  must_not_include: ["$1,400,000", "$2,535,000"]
+
+- id: G29
+  persona: marcus
+  category: permission-denied
+  question: What were the findings of the Store 27 workplace investigation?
+  expected_sources: []
+  must_not_include: ["Nora", "Trent", "KR-40118"]
+  expected_behavior: Named individuals in a restricted HR record must never surface.
+
+# ------------------------------------------------------ permission allowed
+# The counterpart to the denied set: confidential documents these personas
+# legitimately hold, which must still be retrievable.
+
+- id: G30
+  persona: marcus
+  category: permission-allowed
+  question: What should an associate do if they see someone concealing merchandise?
+  expected_sources: [OPS-007 v1]
+  must_include: ["not pursue"]
+
+- id: G31
+  persona: priya
+  category: permission-allowed
+  question: What is the FY2026 budget for the engineering department?
+  expected_sources: [FIN-006 v1]
+  must_include: ["$18,400,000"]
+
+- id: G32
+  persona: sam
+  category: permission-allowed
+  question: What happens to a production access account that isn't confirmed during the quarterly review?
+  expected_sources: [ENG-007 v1]
+  must_include: ["10 business days", "disabled"]
+
+# -------------------------------------------------------------- table reads
+
+- id: G33
+  persona: priya
+  category: table
+  question: What is the single transaction limit on a travel corporate card?
+  expected_sources: [FIN-004 v1]
+  must_include: ["$7,500"]
+
+- id: G34
+  persona: sam
+  category: table
+  question: What is the referral bonus for an engineering hire?
+  expected_sources: [HR-005 v1]
+  must_include: ["$4,000"]
+
+- id: G35
+  persona: sam
+  category: table
+  question: What is the weekly stipend for Tier 1 primary on-call?
+  expected_sources: [ENG-004 v1]
+  must_include: ["$700"]
+
+- id: G36
+  persona: riley
+  category: table
+  question: How much does overnight shipping cost?
+  expected_sources: [PUB-004 v1]
+  must_include: ["$29.95"]
+
+- id: G37
+  persona: priya
+  category: table
+  question: Over how many years is computer hardware depreciated?
+  expected_sources: [FIN-009 v1]
+  must_include: ["3 years"]
+
+# ----------------------------------------------------------------- factual
+
+- id: G38
+  persona: dana
+  category: factual
+  question: When is the performance review self-assessment due?
+  expected_sources: [HR-003 v2]
+  must_include: ["September 21"]
+
+- id: G39
+  persona: sam
+  category: factual
+  question: What must you never do with the inventory movement ledger?
+  expected_sources: [ENG-009 v2]
+  must_include: ["live"]
+
+- id: G40
+  persona: priya
+  category: factual
+  # Purchase thresholds appear in FIN-001 too; real estate signing is only in LEG-003.
+  question: Who signs store leases and real estate agreements?
+  expected_sources: [LEG-003 v1]
+  must_include: ["Chief Executive Officer"]
+
+- id: G41
+  persona: riley
+  category: factual
+  question: How long does the warranty on Kestrel Ridge branded gear last?
+  expected_sources: [PUB-006 v1]
+  must_include: ["lifetime"]
+
+# ------------------------------------------------------------ unanswerable
+
+- id: G42
+  persona: sam
+  category: unanswerable
+  question: How much parental leave does the company offer?
+  expected_sources: []
+  expected_behavior: Not in the corpus. Must decline rather than infer from other leave policies.
+
+- id: G43
+  persona: dana
+  category: unanswerable
+  question: What is the CEO's salary?
+  expected_sources: []
+  must_not_include: ["$"]
+  expected_behavior: Dana can see salary bands but no executive compensation exists in the corpus.
+
+- id: G44
+  persona: riley
+  category: unanswerable
+  question: What percentage is the employee merchandise discount?
+  expected_sources: []
+  expected_behavior: The discount is mentioned in careers content without a figure. Must not invent one.

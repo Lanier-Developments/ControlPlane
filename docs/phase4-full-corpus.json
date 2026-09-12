@@ -8,7 +8,9 @@
       "HR-011 v1",
       "ENG-013 v1",
       "HR-002 v1",
-      "ENG-004 v1"
+      "ENG-004 v1",
+      "HR-010 v2",
+      "HR-005 v1"
     ],
     "failed": [],
     "details": {},
@@ -22,7 +24,10 @@
       "FIN-003 v3",
       "FIN-004 v1",
       "OPS-001 v1",
-      "OPS-005 v1"
+      "OPS-005 v1",
+      "HR-001 v2",
+      "PUB-004 v1",
+      "OPS-008 v1"
     ],
     "failed": [],
     "details": {},
@@ -36,11 +41,14 @@
       "ENG-008 v2",
       "ENG-012 v4",
       "FIN-007 v1",
-      "FIN-002 v1"
+      "FIN-002 v1",
+      "OPS-010 v1",
+      "ENG-004 v1",
+      "ENG-002 v2"
     ],
     "failed": [],
     "details": {},
-    "answer": "The alert escalates to the Platform Engineering lead if the page is not acknowledged within 15 minutes [ENG-012 v4]."
+    "answer": "If the page is not acknowledged within 15 minutes, it escalates to the Platform Engineering lead. [ENG-012 v4]"
   },
   {
     "id": "G04",
@@ -49,7 +57,9 @@
     "retrieved": [
       "HR-004 v1",
       "ENG-004 v1",
-      "HR-005 v1"
+      "PUB-007 v1",
+      "HR-005 v1",
+      "HR-010 v2"
     ],
     "failed": [],
     "details": {},
@@ -62,7 +72,9 @@
     "retrieved": [
       "HR-007 v1",
       "HR-004 v1",
-      "HR-012 v1"
+      "PUB-007 v1",
+      "HR-012 v1",
+      "HR-005 v1"
     ],
     "failed": [],
     "details": {},
@@ -73,8 +85,8 @@
     "persona": "riley",
     "category": "permission-denied",
     "retrieved": [
-      "LEG-004 v2",
-      "PUB-001 v2"
+      "PUB-002 v1",
+      "LEG-004 v2"
     ],
     "failed": [],
     "details": {},
@@ -89,7 +101,10 @@
       "HR-005 v1",
       "LEG-005 v1",
       "HR-002 v1",
-      "HR-006 v3"
+      "HR-006 v3",
+      "PUB-007 v1",
+      "PUB-001 v2",
+      "FIN-004 v1"
     ],
     "failed": [],
     "details": {},
@@ -101,7 +116,10 @@
     "category": "factual",
     "retrieved": [
       "PUB-001 v2",
-      "LEG-004 v2"
+      "PUB-007 v1",
+      "LEG-004 v2",
+      "PUB-006 v1",
+      "PUB-003 v2"
     ],
     "failed": [],
     "details": {},
@@ -113,10 +131,13 @@
     "category": "version-conflict",
     "retrieved": [
       "HR-001 v2",
+      "PUB-002 v1",
       "OPS-002 v3",
       "HR-005 v1",
       "FIN-004 v1",
-      "HR-011 v1"
+      "HR-011 v1",
+      "OPS-001 v1",
+      "OPS-005 v1"
     ],
     "failed": [],
     "details": {},
@@ -129,8 +150,10 @@
     "retrieved": [
       "FIN-008 v1",
       "FIN-002 v1",
+      "PUB-002 v1",
       "FIN-001 v2",
-      "FIN-003 v3"
+      "FIN-003 v3",
+      "OPS-002 v3"
     ],
     "failed": [],
     "details": {},

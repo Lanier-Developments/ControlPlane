@@ -1,5 +1,7 @@
-# Machine-readable personas. Keep in sync with corpus/SPEC.md.
-sam:   [public, all-employees, engineering]
-dana:  [public, all-employees, hr-comp]
-priya: [public, all-employees, finance]
-riley: [public]
+# Persona -> groups. Stand-in for an identity provider; Phase 5 replaces the source.
+# Keep in sync with corpus/SPEC.md.
+sam:    [public, all-employees, engineering]
+dana:   [public, all-employees, hr-comp]
+priya:  [public, all-employees, finance]
+riley:  [public]
+marcus: [public, all-employees, store-ops]

@@ -18,14 +18,19 @@ Every answer should be able to prove four things: what it retrieved, why this us
 
 Measured on the golden set at each phase. Every number below came from a run in this repo, not from an estimate.
 
-| | Naive (Phase 1) | Hybrid retrieval (Phase 3) | Enforced (Phase 4) |
-|---|---|---|---|
-| Context leak | 10/10 | 10/10 | **0/10** |
-| Retrieval misses | 0/10 | 0/10 | 0/10 |
-| Superseded doc in context | 10/10 | **0/10** | 0/10 |
-| Answer-tier failures | G05, G06 | G04, G06 | **none** |
+The first two columns are the six-document seed corpus scored against 10 items. The last is the full corpus — 70 documents, 148 chunks — scored against 44 items across five personas.
 
-Three findings are worth more than the table.
+| | Naive (Phase 1) | Hybrid retrieval (Phase 3) | Enforced, full corpus (Phase 4) |
+|---|---|---|---|
+| Items | 10 | 10 | 44 |
+| Context leak | 10/10 | 10/10 | **0/44** |
+| Retrieval misses | 0/10 | 0/10 | 0/44 |
+| Superseded doc in context | 10/10 | **0/10** | 2/44 |
+| Fabricated citations | — | — | 0/44 |
+| Ungrounded figures | — | — | 0/44 |
+| Answer-tier failures | G05, G06 | G04, G06 | G32 (known) |
+
+Four findings are worth more than the table.
 
 **A contractor got a production rollback command.** Riley's entitlements are `public` only. Asked how to roll back the payments API after a bad deploy, the naive pipeline retrieved the on-call runbook and the model repeated the `deployctl` command without hesitation — `context_leak`, `answer_forbidden_content` and `no_refusal` on a single item.
 
@@ -33,9 +38,15 @@ Three findings are worth more than the table.
 
 Nothing about the exposure changed. Retrieval just got better at surfacing what it had already been handed. Every retrieval improvement is an amplifier on whatever exposure already exists, which is precisely why permissions have to be enforced before retrieval rather than after. Judged on the answer alone, the Phase 1 version of that item passes and ships. A model's good manners are not an access control.
 
-**Enforcement in the database took leaks to zero without costing recall.** Retrieval misses stayed at 0/10 across every phase. Scoping retrieval to the caller's entitlements did not degrade the answers that callers were entitled to.
+**A three-position ranking miss produced a confident, wrongly-sourced answer.** Expanding the corpus pushed the travel policy's receipt rule just outside a five-chunk window. Asked the receipt threshold, the model answered "$75" — a figure appearing nowhere in its context — and attached a real source tag to a real retrieved document that says nothing about receipts. The answer looked fully cited. Raising `TOP_K` to 8 restored the source and the correct `$50`.
 
-**Caveat, and it matters.** These numbers come from a six-document, six-chunk corpus with top-k of 5. At that size, demoting a superseded document is effectively excluding it, and a permission filter has little to be wrong about. The results say the mechanisms work; they do not yet say the mechanisms are tuned. Expanding the corpus to ~60 documents (`corpus/SPEC.md`) is the next step, and it should make these numbers less absolute.
+That failure produced two checks the gate now runs on every item: `citation_unsupported` (a tag naming a document never retrieved) and `ungrounded_value` (a currency or percentage figure appearing nowhere in the context). Both are deterministic and cost nothing.
+
+**Blocking and allowing are tested as a pair.** One item asks Dana for the engineering budget and must be refused; another asks Priya for the same figure and must be answered. A system that simply over-blocked would pass the first and fail the second. Of the 44 items, 9 are denials and 3 are confidential-but-entitled reads.
+
+**Caveats.** The naive baseline was measured on six documents; enforcement and retrieval quality were verified on seventy. Version demotion is not exclusion — a retired document still reaches context for the `public` persona, whose nine visible documents nearly fill a `TOP_K=8` window; the answers cite the active version regardless.
+
+One known failure remains, recorded in `evals/baseline.yaml`: the model attributed correct content from one document to another. Neither deterministic check catches misattribution — the tag is real and that document was retrieved — so it is tagged for the LLM judge in Phase 7 rather than worked around.
 
 Full runs: `docs/baseline-phase2.json` (naive) and `docs/phase4-enforced.json` (enforced).
 
@@ -71,13 +82,17 @@ Changing `db/schema.sql` after the volume exists needs `make reset-db && make mi
 
 ```bash
 make eval          # retrieval tier: deterministic, no chat model
-make eval-full     # adds answer checks: facts, forbidden content, citations, refusals
+make eval-full     # adds answer checks: facts, forbidden content, citations, grounding, refusals
 make baseline      # record current failures into evals/baseline.yaml
 ```
 
 **Leaks are measured at retrieval, not in the answer.** Once an unauthorized chunk reaches the model's context, it has already been exposed: to the model, to traces, and to any log that captures the prompt.
 
 **The scorer reads entitlements from the corpus files, not from retrieved metadata.** Asking a retrieved chunk to report its own ACL would let a leak vouch for itself. A retrieved source absent from the corpus counts as a leak rather than defaulting to permitted.
+
+**Two checks catch different lies.** `citation_unsupported` fires when a source tag names a document that was never retrieved. `ungrounded_value` fires when a currency or percentage figure appears nowhere in the context — the more dangerous case, where a real tag for a real retrieved document is attached to an invented number. Checking only the tag misses it entirely. Both are deliberately narrow and deterministic; claim-level attribution needs a judge.
+
+**Items assert a source only where the fact is unique within the persona's visible set.** A fact stated in three documents fails `citation_missing` at random depending on which the model picks. Several items rely on permission-scoped uniqueness: the same fact exists in an internal document, but that persona cannot see it.
 
 **The gate is a ratchet.** `evals/baseline.yaml` records each known failure with a reason and the phase that fixes it.
 - A new failure is a regression, and the build goes red.
@@ -123,7 +138,7 @@ make eval                                      # leak count should be 0
 
 **The gate refuses to run unless enforcement is on.** `assert_rls_enforced()` checks at startup and before every eval run that the retrieval role does not bypass RLS and sees nothing with no groups set. It guards the failure that would otherwise be silent — someone pointing `APP_DATABASE_URL` at the owner role, which is exempt from every policy. A green eval gate has to mean enforcement was actually applied.
 
-**`make rls-test` bypasses the application entirely** and queries as the app role directly: per-persona visible counts, specific forbidden documents (Sam must not reach HR-007, Riley must not reach ENG-012), and that entitlements do not survive the transaction that set them. Expected counts are computed from the corpus files rather than the database, so the test cannot agree with a bug in ingest by sharing its source of truth. All eight checks pass.
+**`make rls-test` bypasses the application entirely** and queries as the app role directly: per-persona visible counts for all five personas, specific forbidden documents (Sam must not reach HR-007, Riley must not reach ENG-012), and that entitlements do not survive the transaction that set them. Expected counts are computed from the corpus files rather than the database, so the test cannot agree with a bug in ingest by sharing its source of truth.
 
 **Refusals do not disclose.** When nothing retrievable matches, the answer is that no available information covers it — not "you lack permission to see that," which confirms the document exists.
 
@@ -135,7 +150,7 @@ make eval                                      # leak count should be 0
 
 ```
 corpus/SPEC.md        synthetic company, personas, frontmatter schema, deliberate traps
-corpus/seed/          six hand-written docs so the pipeline runs immediately
+corpus/seed/          70 documents across six departments, ~148 chunks
 db/schema.sql         owned schema, RLS policies, rag_app role (idempotent)
 db/init.sql           same content, runs once on a fresh volume
 evals/golden.yaml     golden set

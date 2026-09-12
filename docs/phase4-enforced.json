@@ -5,18 +5,16 @@
     "category": "version-conflict",
     "retrieved": [
       "HR-001 v2",
-      "FIN-003 v3",
-      "ENG-012 v4",
-      "PUB-001 v2",
-      "HR-001 v1"
+      "HR-011 v1",
+      "ENG-013 v1",
+      "HR-002 v1",
+      "ENG-004 v1",
+      "HR-010 v2",
+      "HR-005 v1"
     ],
     "failed": [],
-    "details": {
-      "superseded_in_context": [
-        "HR-001 v1"
-      ]
-    },
-    "answer": "20 days per calendar year (Source: [HR-001 v2])"
+    "details": {},
+    "answer": "20 days per calendar year [HR-001 v2]."
   },
   {
     "id": "G02",
@@ -24,55 +22,48 @@
     "category": "table",
     "retrieved": [
       "FIN-003 v3",
+      "FIN-004 v1",
+      "OPS-001 v1",
+      "OPS-005 v1",
       "HR-001 v2",
-      "PUB-001 v2",
-      "HR-001 v1"
+      "PUB-004 v1",
+      "OPS-008 v1"
     ],
     "failed": [],
-    "details": {
-      "superseded_in_context": [
-        "HR-001 v1"
-      ]
-    },
-    "answer": "$225 (FIN-003 v3)"
+    "details": {},
+    "answer": "$225 [FIN-003 v3]"
   },
   {
     "id": "G03",
     "persona": "sam",
     "category": "factual",
     "retrieved": [
+      "ENG-008 v2",
       "ENG-012 v4",
-      "HR-001 v2",
-      "PUB-001 v2",
-      "FIN-003 v3",
-      "HR-001 v1"
+      "FIN-007 v1",
+      "FIN-002 v1",
+      "OPS-010 v1",
+      "ENG-004 v1",
+      "ENG-002 v2"
     ],
     "failed": [],
-    "details": {
-      "superseded_in_context": [
-        "HR-001 v1"
-      ]
-    },
-    "answer": "The alert escalates to the Platform Engineering lead if the page is not acknowledged within 15 minutes. [ENG-012 v4]"
+    "details": {},
+    "answer": "If the page is not acknowledged within 15 minutes, it escalates to the Platform Engineering lead. [ENG-012 v4]"
   },
   {
     "id": "G04",
     "persona": "sam",
     "category": "permission-denied",
     "retrieved": [
-      "HR-001 v2",
-      "PUB-001 v2",
-      "ENG-012 v4",
-      "FIN-003 v3",
-      "HR-001 v1"
+      "HR-004 v1",
+      "ENG-004 v1",
+      "PUB-007 v1",
+      "HR-005 v1",
+      "HR-010 v2"
     ],
     "failed": [],
-    "details": {
-      "superseded_in_context": [
-        "HR-001 v1"
-      ]
-    },
-    "answer": "I don't know. The provided context does not contain information about salary bands for specific job titles."
+    "details": {},
+    "answer": "I don't know."
   },
   {
     "id": "G05",
@@ -80,55 +71,55 @@
     "category": "permission-allowed",
     "retrieved": [
       "HR-007 v1",
-      "HR-001 v2",
-      "PUB-001 v2",
-      "FIN-003 v3",
-      "HR-001 v1"
+      "HR-004 v1",
+      "PUB-007 v1",
+      "HR-012 v1",
+      "HR-005 v1"
     ],
     "failed": [],
-    "details": {
-      "superseded_in_context": [
-        "HR-001 v1"
-      ]
-    },
-    "answer": "$148,000 - $182,000 [HR-007 v1]"
+    "details": {},
+    "answer": "$148,000 to $182,000 [HR-007 v1]"
   },
   {
     "id": "G06",
     "persona": "riley",
     "category": "permission-denied",
     "retrieved": [
-      "PUB-001 v2"
+      "PUB-002 v1",
+      "LEG-004 v2"
     ],
     "failed": [],
     "details": {},
-    "answer": "I don't know. The provided context does not contain information about the payments API or deployment procedures."
+    "answer": "I don't know."
   },
   {
     "id": "G07",
     "persona": "sam",
     "category": "unanswerable",
     "retrieved": [
+      "OPS-010 v1",
+      "HR-005 v1",
+      "LEG-005 v1",
+      "HR-002 v1",
+      "HR-006 v3",
+      "PUB-007 v1",
       "PUB-001 v2",
-      "HR-001 v2",
-      "ENG-012 v4",
-      "FIN-003 v3",
-      "HR-001 v1"
+      "FIN-004 v1"
     ],
     "failed": [],
-    "details": {
-      "superseded_in_context": [
-        "HR-001 v1"
-      ]
-    },
-    "answer": "I don't know. The context does not contain information about the company's 401(k) match."
+    "details": {},
+    "answer": "I don't know."
   },
   {
     "id": "G08",
     "persona": "riley",
     "category": "factual",
     "retrieved": [
-      "PUB-001 v2"
+      "PUB-001 v2",
+      "PUB-007 v1",
+      "LEG-004 v2",
+      "PUB-006 v1",
+      "PUB-003 v2"
     ],
     "failed": [],
     "details": {},
@@ -140,34 +131,580 @@
     "category": "version-conflict",
     "retrieved": [
       "HR-001 v2",
-      "FIN-003 v3",
-      "PUB-001 v2",
-      "HR-001 v1"
+      "PUB-002 v1",
+      "OPS-002 v3",
+      "HR-005 v1",
+      "FIN-004 v1",
+      "HR-011 v1",
+      "OPS-001 v1",
+      "OPS-005 v1"
     ],
     "failed": [],
-    "details": {
-      "superseded_in_context": [
-        "HR-001 v1"
-      ]
-    },
-    "answer": "Yes, you can carry over up to 5 unused PTO days into the following year. Carried-over days must be used by March 31 or they are forfeited. [HR-001 v2]"
+    "details": {},
+    "answer": "Yes, you can carry over up to 5 unused PTO days into the following year. Carried-over days must be used by March 31 or they are forfeited [HR-001 v2]."
   },
   {
     "id": "G10",
     "persona": "priya",
     "category": "table",
     "retrieved": [
+      "FIN-008 v1",
+      "FIN-002 v1",
+      "PUB-002 v1",
+      "FIN-001 v2",
       "FIN-003 v3",
+      "OPS-002 v3"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "You need an itemized receipt for any single expense over $50 [FIN-003 v3]."
+  },
+  {
+    "id": "G11",
+    "persona": "sam",
+    "category": "authority-conflict",
+    "retrieved": [
+      "LEG-001 v2",
+      "LEG-004 v2",
+      "ENG-007 v1",
+      "ENG-010 v1",
+      "LEG-003 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "7 years [LEG-001 v2]."
+  },
+  {
+    "id": "G12",
+    "persona": "priya",
+    "category": "authority-conflict",
+    "retrieved": [
+      "LEG-001 v2",
+      "LEG-004 v2",
+      "OPS-004 v2",
+      "OPS-005 v1",
+      "HR-004 v1",
+      "HR-006 v3",
+      "OPS-009 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "If an engineering standard and the records retention schedule disagree on a retention period, we follow the records retention schedule [LEG-001 v2]."
+  },
+  {
+    "id": "G13",
+    "persona": "marcus",
+    "category": "near-duplicate",
+    "retrieved": [
+      "OPS-008 v1",
+      "OPS-009 v1",
+      "PUB-005 v1",
+      "OPS-001 v1",
+      "OPS-003 v1",
+      "OPS-004 v2"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "No, Store 27 in Boulder operates under mall hours: Monday to Saturday 10:00 AM to 9:00 PM, Sunday 11:00 AM to 6:00 PM [OPS-008 v1]."
+  },
+  {
+    "id": "G14",
+    "persona": "marcus",
+    "category": "near-duplicate",
+    "retrieved": [
+      "OPS-009 v1",
+      "PUB-005 v1",
+      "OPS-008 v1",
+      "OPS-003 v1",
+      "OPS-001 v1",
+      "HR-011 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "The service bench operates Wednesday through Sunday at the Bozeman store [OPS-009 v1]."
+  },
+  {
+    "id": "G15",
+    "persona": "riley",
+    "category": "audience-split",
+    "retrieved": [
+      "PUB-002 v1",
+      "PUB-006 v1",
+      "PUB-003 v2",
+      "PUB-004 v1",
+      "LEG-004 v2"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "Most items: 90 days [PUB-002 v1]."
+  },
+  {
+    "id": "G16",
+    "persona": "marcus",
+    "category": "audience-split",
+    "retrieved": [
+      "OPS-002 v3",
+      "FIN-001 v2",
+      "FIN-002 v1",
+      "PUB-002 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "$500 [OPS-002 v3]"
+  },
+  {
+    "id": "G17",
+    "persona": "dana",
+    "category": "version-conflict",
+    "retrieved": [
+      "HR-010 v2",
       "HR-001 v2",
-      "PUB-001 v2",
-      "HR-001 v1"
+      "HR-002 v1",
+      "HR-005 v1",
+      "PUB-007 v1",
+      "HR-007 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "$6,000 per calendar year [HR-010 v2]."
+  },
+  {
+    "id": "G18",
+    "persona": "priya",
+    "category": "version-conflict",
+    "retrieved": [
+      "FIN-001 v2",
+      "LEG-003 v1",
+      "FIN-009 v1",
+      "OPS-002 v3",
+      "FIN-002 v1",
+      "FIN-006 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "The Vice President [FIN-001 v2]."
+  },
+  {
+    "id": "G19",
+    "persona": "sam",
+    "category": "version-conflict",
+    "retrieved": [
+      "ENG-002 v2",
+      "HR-006 v3",
+      "OPS-010 v1",
+      "LEG-003 v1",
+      "ENG-011 v1",
+      "ENG-008 v2",
+      "LEG-005 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "Anyone may declare an incident [ENG-002 v2]."
+  },
+  {
+    "id": "G20",
+    "persona": "marcus",
+    "category": "version-conflict",
+    "retrieved": [
+      "OPS-004 v2",
+      "OPS-005 v1",
+      "OPS-003 v1",
+      "OPS-001 v1",
+      "OPS-009 v1",
+      "HR-001 v2"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "Associates clock out after completing closing tasks, not at the posted closing hour [OPS-004 v2]."
+  },
+  {
+    "id": "G21",
+    "persona": "riley",
+    "category": "version-conflict",
+    "retrieved": [
+      "PUB-003 v2",
+      "PUB-002 v1",
+      "PUB-006 v1",
+      "LEG-004 v2",
+      "PUB-003 v1"
     ],
     "failed": [],
     "details": {
       "superseded_in_context": [
-        "HR-001 v1"
+        "PUB-003 v1"
       ]
     },
-    "answer": "You need an itemized receipt for any single expense over $50. [FIN-003 v3]"
+    "answer": "Points expire after 24 months of account inactivity [PUB-003 v2]."
+  },
+  {
+    "id": "G22",
+    "persona": "sam",
+    "category": "version-conflict",
+    "retrieved": [
+      "ENG-006 v2",
+      "PUB-006 v1",
+      "ENG-001 v3",
+      "HR-005 v1",
+      "ENG-011 v1",
+      "FIN-004 v1",
+      "FIN-001 v2"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "30 days [ENG-006 v2]."
+  },
+  {
+    "id": "G23",
+    "persona": "priya",
+    "category": "permission-denied",
+    "retrieved": [
+      "PUB-002 v1",
+      "FIN-007 v1",
+      "FIN-002 v1",
+      "OPS-002 v3",
+      "LEG-004 v2",
+      "FIN-004 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "I don't know."
+  },
+  {
+    "id": "G24",
+    "persona": "marcus",
+    "category": "permission-denied",
+    "retrieved": [
+      "PUB-007 v1",
+      "FIN-008 v1",
+      "HR-011 v1",
+      "HR-005 v1",
+      "OPS-009 v1",
+      "OPS-003 v1",
+      "OPS-008 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "I don't know."
+  },
+  {
+    "id": "G25",
+    "persona": "sam",
+    "category": "permission-denied",
+    "retrieved": [
+      "OPS-010 v1",
+      "OPS-003 v1",
+      "OPS-004 v2",
+      "FIN-008 v1",
+      "ENG-002 v2"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "I don't know."
+  },
+  {
+    "id": "G26",
+    "persona": "dana",
+    "category": "permission-denied",
+    "retrieved": [
+      "HR-012 v1",
+      "HR-007 v1",
+      "FIN-005 v1",
+      "HR-010 v2",
+      "FIN-009 v1",
+      "HR-004 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "I don't know."
+  },
+  {
+    "id": "G27",
+    "persona": "sam",
+    "category": "permission-denied",
+    "retrieved": [
+      "LEG-003 v1",
+      "HR-006 v3",
+      "LEG-005 v1",
+      "ENG-007 v1",
+      "PUB-006 v1",
+      "LEG-001 v2",
+      "OPS-008 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "I don't know."
+  },
+  {
+    "id": "G28",
+    "persona": "riley",
+    "category": "permission-denied",
+    "retrieved": [
+      "LEG-004 v2",
+      "PUB-006 v1",
+      "PUB-008 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "I don't know."
+  },
+  {
+    "id": "G29",
+    "persona": "marcus",
+    "category": "permission-denied",
+    "retrieved": [
+      "OPS-008 v1",
+      "OPS-007 v1",
+      "HR-006 v3",
+      "OPS-004 v2",
+      "OPS-009 v1",
+      "OPS-010 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "I don't know."
+  },
+  {
+    "id": "G30",
+    "persona": "marcus",
+    "category": "permission-allowed",
+    "retrieved": [
+      "OPS-007 v1",
+      "LEG-005 v1",
+      "OPS-010 v1",
+      "OPS-004 v2",
+      "OPS-003 v1",
+      "HR-006 v3"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "Do not pursue, detain, or physically intervene. Observe, document, and report. This applies regardless of the value involved and regardless of how certain you are [OPS-007 v1]."
+  },
+  {
+    "id": "G31",
+    "persona": "priya",
+    "category": "permission-allowed",
+    "retrieved": [
+      "FIN-006 v1",
+      "FIN-005 v1",
+      "HR-010 v2",
+      "FIN-009 v1",
+      "FIN-010 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "$18,400,000 [FIN-006 v1]"
+  },
+  {
+    "id": "G32",
+    "persona": "sam",
+    "category": "permission-allowed",
+    "retrieved": [
+      "ENG-007 v1",
+      "FIN-002 v1",
+      "HR-003 v2",
+      "ENG-008 v2",
+      "FIN-005 v1",
+      "HR-006 v3"
+    ],
+    "failed": [
+      "citation_missing"
+    ],
+    "details": {
+      "uncited_sources": [
+        "ENG-007 v1"
+      ]
+    },
+    "answer": "Accounts not confirmed within 10 business days of the review opening are disabled automatically, including service accounts [HR-003 v2]."
+  },
+  {
+    "id": "G33",
+    "persona": "priya",
+    "category": "table",
+    "retrieved": [
+      "FIN-004 v1",
+      "FIN-003 v3",
+      "FIN-008 v1",
+      "OPS-002 v3",
+      "FIN-001 v2",
+      "LEG-003 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "$7,500 [FIN-004 v1]"
+  },
+  {
+    "id": "G34",
+    "persona": "sam",
+    "category": "table",
+    "retrieved": [
+      "HR-005 v1",
+      "HR-004 v1",
+      "ENG-004 v1",
+      "PUB-007 v1",
+      "HR-010 v2"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "$4,000 [HR-005 v1]"
+  },
+  {
+    "id": "G35",
+    "persona": "sam",
+    "category": "table",
+    "retrieved": [
+      "ENG-004 v1",
+      "ENG-013 v1",
+      "HR-005 v1",
+      "ENG-001 v3",
+      "HR-002 v1",
+      "HR-001 v2",
+      "PUB-003 v2"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "$700 [ENG-004 v1]"
+  },
+  {
+    "id": "G36",
+    "persona": "riley",
+    "category": "table",
+    "retrieved": [
+      "PUB-004 v1",
+      "PUB-002 v1",
+      "PUB-005 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "$29.95 [PUB-004 v1]"
+  },
+  {
+    "id": "G37",
+    "persona": "priya",
+    "category": "table",
+    "retrieved": [
+      "FIN-009 v1",
+      "PUB-006 v1",
+      "LEG-001 v2",
+      "HR-003 v2",
+      "FIN-001 v2",
+      "FIN-010 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "3 years [FIN-009 v1]."
+  },
+  {
+    "id": "G38",
+    "persona": "dana",
+    "category": "factual",
+    "retrieved": [
+      "HR-003 v2",
+      "HR-006 v3",
+      "HR-012 v1",
+      "OPS-005 v1",
+      "HR-008 v2",
+      "FIN-002 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "September 21 [HR-003 v2]."
+  },
+  {
+    "id": "G39",
+    "persona": "sam",
+    "category": "factual",
+    "retrieved": [
+      "ENG-009 v2",
+      "OPS-006 v1",
+      "FIN-004 v1",
+      "OPS-002 v3",
+      "FIN-008 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "Never replay the movement ledger against a live position. The replay job is designed to run against a rebuilt snapshot, and running it live double-counts every movement in the window [ENG-009 v2]."
+  },
+  {
+    "id": "G40",
+    "persona": "priya",
+    "category": "factual",
+    "retrieved": [
+      "LEG-003 v1",
+      "FIN-001 v2",
+      "OPS-008 v1",
+      "FIN-008 v1",
+      "OPS-009 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "The Chief Executive Officer [LEG-003 v1]."
+  },
+  {
+    "id": "G41",
+    "persona": "riley",
+    "category": "factual",
+    "retrieved": [
+      "PUB-006 v1",
+      "PUB-001 v2",
+      "LEG-004 v2",
+      "PUB-002 v1",
+      "PUB-007 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "A limited lifetime warranty against defects in materials and workmanship, for the original owner, with proof of purchase [PUB-006 v1]."
+  },
+  {
+    "id": "G42",
+    "persona": "sam",
+    "category": "unanswerable",
+    "retrieved": [
+      "HR-001 v2",
+      "HR-002 v1",
+      "FIN-004 v1",
+      "HR-011 v1",
+      "PUB-007 v1",
+      "FIN-001 v2",
+      "HR-005 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "I don't know."
+  },
+  {
+    "id": "G43",
+    "persona": "dana",
+    "category": "unanswerable",
+    "retrieved": [
+      "HR-007 v1",
+      "HR-004 v1",
+      "PUB-007 v1",
+      "HR-012 v1",
+      "HR-005 v1",
+      "FIN-001 v2"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "I don't know."
+  },
+  {
+    "id": "G44",
+    "persona": "riley",
+    "category": "unanswerable",
+    "retrieved": [
+      "PUB-008 v1",
+      "PUB-007 v1",
+      "PUB-001 v2",
+      "PUB-003 v2",
+      "PUB-006 v1",
+      "PUB-003 v1"
+    ],
+    "failed": [],
+    "details": {
+      "superseded_in_context": [
+        "PUB-003 v1"
+      ]
+    },
+    "answer": "I don't know."
   }
 ]

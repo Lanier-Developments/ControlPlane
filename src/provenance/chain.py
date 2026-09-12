@@ -64,7 +64,12 @@ def generate(question: str, docs: list[Document], user: str | None = None) -> st
     return generate_full(question, docs, user).text
 
 
-def generate_full(question: str, docs: list[Document], user: str | None = None):
+def generate_full(
+    question: str,
+    docs: list[Document],
+    user: str | None = None,
+    correlation_id: str | None = None,
+):
     from .gateway import complete
     from .identity import groups_for
 
@@ -75,22 +80,72 @@ def generate_full(question: str, docs: list[Document], user: str | None = None):
         classifications=[d.metadata.get("classification", "internal") for d in docs],
         groups=groups_for(user) if user else [],
         principal=user,
+        correlation_id=correlation_id,
     )
 
 
-def ask(question: str, user: str | None = None) -> dict:
+def ask(question: str, user: str | None = None, record_evidence: bool = True) -> dict:
+    import uuid as _uuid
+
+    from .evidence import record
+    from .gateway import PolicyDenied
+    from .identity import groups_for
+    from .registry import CLASSIFICATION_ORDER, max_classification
+
+    correlation_id = str(_uuid.uuid4())
+    groups = groups_for(user) if user else []
     docs = retrieve(question, user)
+
+    def chunk_refs(documents):
+        return [
+            {"doc_id": d.metadata["doc_id"], "version": d.metadata["version"],
+             "chunk_id": d.metadata.get("chunk_id"),
+             "classification": d.metadata.get("classification")}
+            for d in documents
+        ]
+
     if not docs:
         # Nothing the caller may see matched. Say so without hinting that
         # something exists — "you lack permission" is itself a disclosure.
+        answer = "I don't have any information available to you that answers that."
+        if record_evidence:
+            # A question that returned nothing is still evidence: it shows the control
+            # was applied to this principal at this time.
+            record(correlation_id=correlation_id, principal=user, groups=groups,
+                   question=question, classification="public", retrieved=[],
+                   decision="refused_no_access", answer=answer)
         return {
             "question": question,
             "user": user,
             "permissions_enforced": True,
-            "answer": "I don't have any information available to you that answers that.",
+            "answer": answer,
             "sources": [],
+            "governance": {"correlation_id": correlation_id,
+                           "decision": "refused_no_access"},
         }
-    completion = generate_full(question, docs, user)
+
+    classification = max_classification(
+        [d.metadata.get("classification", "internal") for d in docs]
+    )
+
+    try:
+        completion = generate_full(question, docs, user, correlation_id)
+    except PolicyDenied as denied:
+        if record_evidence:
+            record(correlation_id=correlation_id, principal=user, groups=groups,
+                   question=question, classification=classification,
+                   retrieved=chunk_refs(docs), decision="refused_policy",
+                   rule_id="policy-denied")
+        return {
+            "question": question,
+            "user": user,
+            "permissions_enforced": True,
+            "answer": "No approved model is permitted to process this content.",
+            "sources": [],
+            "governance": {"correlation_id": correlation_id,
+                           "decision": "refused_policy", "reason": str(denied)},
+        }
+
     answer = completion.text
 
     seen, sources = set(), []
@@ -106,6 +161,18 @@ def ask(question: str, user: str | None = None) -> dict:
                 "status": d.metadata.get("status"),
             })
 
+    allowed = [d for d in completion.decisions if d.allowed]
+    entry = None
+    if record_evidence:
+        entry = record(
+            correlation_id=correlation_id, principal=user, groups=groups,
+            question=question, classification=classification,
+            retrieved=chunk_refs(docs), decision="answered",
+            model_id=completion.model_id,
+            rule_id=allowed[-1].rule_id if allowed else None,
+            answer=answer, cost_usd=completion.cost_usd,
+        )
+
     return {
         "question": question,
         "user": user,
@@ -114,12 +181,10 @@ def ask(question: str, user: str | None = None) -> dict:
         "sources": sources,
         "governance": {
             "correlation_id": completion.correlation_id,
+            "evidence_id": entry.entry_id if entry else None,
+            "evidence_seq": entry.seq if entry else None,
             "model": completion.model_id,
-            "classification": max(
-                (s["classification"] for s in sources),
-                key=["public", "internal", "confidential", "restricted"].index,
-                default="public",
-            ),
+            "classification": classification,
             "decisions": [
                 {"rule_id": d.rule_id, "allowed": d.allowed, "reason": d.reason,
                  "model": d.model.id if d.model else None}

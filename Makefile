@@ -18,3 +18,7 @@ baseline:      ; python -m provenance.evals --tier full --write-baseline
 compare:       ; python -m provenance.compare vector hybrid
 policy-test:   ; python -m provenance.policy_test
 usage:         ; python -m provenance.usage --hours 24
+verify:        ; python -m provenance.audit verify
+trace:         ; python -m provenance.audit trace $(ID)
+tamper-demo:   ; python -m provenance.audit tamper-demo
+append-only:   ; python -m provenance.audit append-only

@@ -128,3 +128,53 @@ CREATE TABLE IF NOT EXISTS response_cache (
 );
 
 CREATE INDEX IF NOT EXISTS response_cache_created_idx ON response_cache (created_at);
+
+-- Phase 6: the evidence ledger.
+--
+-- One row per answered (or refused) question, carrying everything needed to reconstruct
+-- why that answer was permissible: who asked, what their entitlements were, which chunks
+-- were retrieved, which model ran, and which policy rule allowed it.
+--
+-- Rows are hash-chained: each row's hash covers its own content plus the previous row's
+-- hash. Altering or deleting a past row breaks every hash after it, so tampering is
+-- detectable without a second system. This is not a blockchain and is not trying to be —
+-- it defends against quiet edits, not against an attacker who can rewrite the whole table.
+CREATE TABLE IF NOT EXISTS evidence (
+    seq             bigserial PRIMARY KEY,
+    entry_id        uuid        NOT NULL UNIQUE,
+    occurred_at     timestamptz NOT NULL DEFAULT now(),
+    correlation_id  uuid        NOT NULL,
+    principal       text,
+    groups          text[]      NOT NULL,
+    question        text        NOT NULL,
+    classification  text        NOT NULL,
+    retrieved       jsonb       NOT NULL,   -- [{doc_id, version, chunk_id, classification}]
+    model_id        text,
+    rule_id         text,
+    decision        text        NOT NULL,   -- answered | refused_policy | refused_no_access
+    answer_sha256   text,                   -- the answer's digest, not the answer
+    cost_usd        numeric(12, 6),
+    prev_hash       text        NOT NULL,
+    entry_hash      text        NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS evidence_correlation_idx ON evidence (correlation_id);
+CREATE INDEX IF NOT EXISTS evidence_principal_idx ON evidence (principal, occurred_at DESC);
+CREATE INDEX IF NOT EXISTS evidence_occurred_idx ON evidence (occurred_at DESC);
+
+-- The ledger is append-only for everyone. Even the owner role has to drop these
+-- triggers deliberately to rewrite history, which is the point: an accident cannot
+-- do it, and a deliberate act leaves a schema change behind.
+CREATE OR REPLACE FUNCTION evidence_append_only() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    RAISE EXCEPTION 'evidence is append-only (attempted %)', TG_OP;
+END $$;
+
+DROP TRIGGER IF EXISTS evidence_no_update ON evidence;
+CREATE TRIGGER evidence_no_update BEFORE UPDATE ON evidence
+    FOR EACH ROW EXECUTE FUNCTION evidence_append_only();
+
+DROP TRIGGER IF EXISTS evidence_no_delete ON evidence;
+CREATE TRIGGER evidence_no_delete BEFORE DELETE ON evidence
+    FOR EACH ROW EXECUTE FUNCTION evidence_append_only();

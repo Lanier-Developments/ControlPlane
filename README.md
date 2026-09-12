@@ -50,6 +50,9 @@ One known failure remains, recorded in `evals/baseline.yaml`: the model attribut
 
 Full runs: `docs/baseline-phase2.json` (naive) and `docs/phase4-enforced.json` (enforced).
 
+**[docs/FINDINGS.md](docs/FINDINGS.md)** has the longer write-up: what each measurement
+turned out to mean, the three checks a green gate has to survive, and what is still open.
+
 ## Roadmap
 
 | Phase | Learning objective | Ships |
@@ -59,7 +62,7 @@ Full runs: `docs/baseline-phase2.json` (naive) and `docs/phase4-enforced.json` (
 | 3 | Retrieval quality | Hybrid (pgvector + full-text) with RRF, version-aware ranking, comparison harness (**done**) |
 | 4 | Permission-aware retrieval | Owned schema, ACL propagation, Postgres row-level security, RLS suite (**done**) |
 | 5 | Governed model access | Model registry, data-classification routing policy, gateway choke point, cache, cost attribution (**done**) |
-| 6 | Evidence and observability | Hash-chained evidence ledger, correlation IDs, Langfuse tracing |
+| 6 | Evidence and observability | Hash-chained append-only evidence ledger, correlation ids, audit and tamper-detection tooling (**done**) |
 | 7 | Agentic retrieval and red team | LangGraph rewrite/grade loop, poisoned-document test suite |
 
 ## Quickstart
@@ -180,15 +183,49 @@ Measured on the full golden set: 44 calls, 0 denied, all routed to self-hosted i
 
 
 
+## Evidence ledger (Phase 6)
+
+```bash
+make migrate                      # adds the evidence table and its triggers
+make ask Q="..." USER=sam         # every question writes an entry
+make verify                       # recompute the whole hash chain
+make trace ID=sam                 # entries by principal, correlation id, or entry id
+make append-only                  # confirm UPDATE and DELETE are refused
+make tamper-demo                  # prove the chain detects a silent edit
+```
+
+**What an answer has to prove, after the fact.** Who asked, what they were entitled to, which chunks were retrieved, which model ran, which rule permitted it, and that the record has not been altered since. One entry per question, answered or refused.
+
+**Digests, not answers.** The ledger stores a SHA-256 of the answer and chunk ids, never the answer text or the chunk text. Storing answers would recreate — in an append-only table that cannot be deleted from — a copy of exactly the confidential content the permission layer works to contain. The digest proves what was said to anyone who still has the text and discloses nothing to anyone who does not.
+
+**Refusals are entries.** A question that returned nothing, and a question refused by routing policy, both write to the ledger. A ledger holding only successes proves nothing about enforcement: the refusals are how you show the controls fired rather than that they were merely configured.
+
+**Append-only in the database.** Triggers refuse `UPDATE` and `DELETE` outright. Rewriting history requires `ALTER TABLE ... DISABLE TRIGGER` — deliberately awkward, so an accident cannot do it and a deliberate act leaves a schema change behind.
+
+**Tamper-evident, not tamper-proof.** Each entry hashes its own content plus the previous entry's hash, so altering or removing a past row invalidates every hash after it. `verify` recomputes each digest from stored content rather than trusting the stored hash, which catches an edit even if the editor also updated that row's hash — the break just moves to the next link. Anyone who can rewrite the entire table in order can still forge a consistent chain. Detecting quiet edits is the goal; defeating an operator with database ownership is not, and claiming otherwise would be dishonest.
+
+`make tamper-demo` edits a row behind the triggers, shows verification fail, then restores it. A hash chain nobody has watched break is a claim, not a control.
+
+**Correlation across layers.** One correlation id links the ledger entry to the model call log, so a single answer's retrieval scope and its model routing decision can be reconstructed together. `make trace ID=<principal>` prints both.
+
+**Appends are serialized** with a table lock. Two concurrent writers reading the same tail hash would produce two entries claiming the same predecessor, and the chain would be unverifiable through that point. Appends are rare relative to reads, so the contention is acceptable here; a high-throughput deployment would build the chain with a single writer instead.
+
+## Layout
+
 ```
 corpus/SPEC.md        synthetic company, personas, frontmatter schema, deliberate traps
 corpus/seed/          70 documents across six departments, ~148 chunks
-db/schema.sql         owned schema, RLS policies, rag_app role (idempotent)
+db/schema.sql         owned schema, RLS policies, rag_app role, gateway and ledger tables
 db/init.sql           same content, runs once on a fresh volume
-evals/golden.yaml     golden set
+policy/models.yaml    model registry: providers, tiers, ceilings, rates, status
+policy/routing.yaml   routing rules, evaluated in order, ending in a deny
+evals/golden.yaml     44 items across 9 categories
 evals/personas.yaml   persona -> groups (identity provider stand-in)
 evals/baseline.yaml   ratchet: known failures with reasons and fix phase
-docs/                 preserved eval runs: naive baseline and enforced
-.github/workflows/    eval-gate (retrieval blocks, full advisory)
-src/provenance/       config, db, identity, store, ingest, retrieval, chain, evals, compare, rls_test, api
+docs/FINDINGS.md      what the measurements turned out to mean
+docs/*.json           preserved eval runs: naive baseline and enforced
+.github/workflows/    policy job, then eval-gate (retrieval blocks, full advisory)
+src/provenance/       config, db, identity, store, ingest, retrieval, chain, gateway,
+                      registry, evidence, audit, evals, compare, usage,
+                      rls_test, policy_test, api
 ```

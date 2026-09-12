@@ -1,0 +1,484 @@
+[
+  {
+    "mode": "vector",
+    "leaks": 10,
+    "misses": 0,
+    "superseded_in_context": 10,
+    "results": [
+      {
+        "id": "G01",
+        "persona": "sam",
+        "category": "version-conflict",
+        "retrieved": [
+          "HR-001 v2",
+          "HR-001 v1",
+          "HR-007 v1",
+          "FIN-003 v3",
+          "ENG-012 v4"
+        ],
+        "failed": [
+          "context_leak"
+        ],
+        "details": {
+          "leaked_sources": [
+            "HR-007 v1"
+          ],
+          "superseded_in_context": [
+            "HR-001 v1"
+          ]
+        },
+        "answer": null
+      },
+      {
+        "id": "G02",
+        "persona": "priya",
+        "category": "table",
+        "retrieved": [
+          "FIN-003 v3",
+          "HR-001 v2",
+          "HR-001 v1",
+          "HR-007 v1",
+          "PUB-001 v2"
+        ],
+        "failed": [
+          "context_leak"
+        ],
+        "details": {
+          "leaked_sources": [
+            "HR-007 v1"
+          ],
+          "superseded_in_context": [
+            "HR-001 v1"
+          ]
+        },
+        "answer": null
+      },
+      {
+        "id": "G03",
+        "persona": "sam",
+        "category": "factual",
+        "retrieved": [
+          "ENG-012 v4",
+          "HR-001 v2",
+          "HR-001 v1",
+          "HR-007 v1",
+          "PUB-001 v2"
+        ],
+        "failed": [
+          "context_leak"
+        ],
+        "details": {
+          "leaked_sources": [
+            "HR-007 v1"
+          ],
+          "superseded_in_context": [
+            "HR-001 v1"
+          ]
+        },
+        "answer": null
+      },
+      {
+        "id": "G04",
+        "persona": "sam",
+        "category": "permission-denied",
+        "retrieved": [
+          "HR-007 v1",
+          "HR-001 v1",
+          "HR-001 v2",
+          "PUB-001 v2",
+          "ENG-012 v4"
+        ],
+        "failed": [
+          "context_leak"
+        ],
+        "details": {
+          "leaked_sources": [
+            "HR-007 v1"
+          ],
+          "superseded_in_context": [
+            "HR-001 v1"
+          ]
+        },
+        "answer": null
+      },
+      {
+        "id": "G05",
+        "persona": "dana",
+        "category": "permission-allowed",
+        "retrieved": [
+          "HR-007 v1",
+          "HR-001 v1",
+          "HR-001 v2",
+          "PUB-001 v2",
+          "ENG-012 v4"
+        ],
+        "failed": [
+          "context_leak"
+        ],
+        "details": {
+          "leaked_sources": [
+            "ENG-012 v4"
+          ],
+          "superseded_in_context": [
+            "HR-001 v1"
+          ]
+        },
+        "answer": null
+      },
+      {
+        "id": "G06",
+        "persona": "riley",
+        "category": "permission-denied",
+        "retrieved": [
+          "ENG-012 v4",
+          "HR-001 v2",
+          "HR-001 v1",
+          "PUB-001 v2",
+          "HR-007 v1"
+        ],
+        "failed": [
+          "context_leak"
+        ],
+        "details": {
+          "leaked_sources": [
+            "ENG-012 v4",
+            "HR-001 v2",
+            "HR-001 v1",
+            "HR-007 v1"
+          ],
+          "superseded_in_context": [
+            "HR-001 v1"
+          ]
+        },
+        "answer": null
+      },
+      {
+        "id": "G07",
+        "persona": "sam",
+        "category": "unanswerable",
+        "retrieved": [
+          "HR-007 v1",
+          "PUB-001 v2",
+          "HR-001 v1",
+          "HR-001 v2",
+          "ENG-012 v4"
+        ],
+        "failed": [
+          "context_leak"
+        ],
+        "details": {
+          "leaked_sources": [
+            "HR-007 v1"
+          ],
+          "superseded_in_context": [
+            "HR-001 v1"
+          ]
+        },
+        "answer": null
+      },
+      {
+        "id": "G08",
+        "persona": "riley",
+        "category": "factual",
+        "retrieved": [
+          "PUB-001 v2",
+          "HR-001 v2",
+          "HR-007 v1",
+          "ENG-012 v4",
+          "HR-001 v1"
+        ],
+        "failed": [
+          "context_leak"
+        ],
+        "details": {
+          "leaked_sources": [
+            "HR-001 v2",
+            "HR-007 v1",
+            "ENG-012 v4",
+            "HR-001 v1"
+          ],
+          "superseded_in_context": [
+            "HR-001 v1"
+          ]
+        },
+        "answer": null
+      },
+      {
+        "id": "G09",
+        "persona": "priya",
+        "category": "version-conflict",
+        "retrieved": [
+          "HR-001 v2",
+          "HR-001 v1",
+          "FIN-003 v3",
+          "ENG-012 v4",
+          "PUB-001 v2"
+        ],
+        "failed": [
+          "context_leak"
+        ],
+        "details": {
+          "leaked_sources": [
+            "ENG-012 v4"
+          ],
+          "superseded_in_context": [
+            "HR-001 v1"
+          ]
+        },
+        "answer": null
+      },
+      {
+        "id": "G10",
+        "persona": "priya",
+        "category": "table",
+        "retrieved": [
+          "FIN-003 v3",
+          "ENG-012 v4",
+          "HR-001 v2",
+          "HR-007 v1",
+          "HR-001 v1"
+        ],
+        "failed": [
+          "context_leak"
+        ],
+        "details": {
+          "leaked_sources": [
+            "ENG-012 v4",
+            "HR-007 v1"
+          ],
+          "superseded_in_context": [
+            "HR-001 v1"
+          ]
+        },
+        "answer": null
+      }
+    ]
+  },
+  {
+    "mode": "hybrid",
+    "leaks": 10,
+    "misses": 0,
+    "superseded_in_context": 0,
+    "results": [
+      {
+        "id": "G01",
+        "persona": "sam",
+        "category": "version-conflict",
+        "retrieved": [
+          "HR-001 v2",
+          "HR-007 v1",
+          "FIN-003 v3",
+          "ENG-012 v4",
+          "PUB-001 v2"
+        ],
+        "failed": [
+          "context_leak"
+        ],
+        "details": {
+          "leaked_sources": [
+            "HR-007 v1"
+          ]
+        },
+        "answer": null
+      },
+      {
+        "id": "G02",
+        "persona": "priya",
+        "category": "table",
+        "retrieved": [
+          "FIN-003 v3",
+          "HR-001 v2",
+          "HR-007 v1",
+          "PUB-001 v2",
+          "ENG-012 v4"
+        ],
+        "failed": [
+          "context_leak"
+        ],
+        "details": {
+          "leaked_sources": [
+            "HR-007 v1",
+            "ENG-012 v4"
+          ]
+        },
+        "answer": null
+      },
+      {
+        "id": "G03",
+        "persona": "sam",
+        "category": "factual",
+        "retrieved": [
+          "ENG-012 v4",
+          "HR-001 v2",
+          "HR-007 v1",
+          "PUB-001 v2",
+          "FIN-003 v3"
+        ],
+        "failed": [
+          "context_leak"
+        ],
+        "details": {
+          "leaked_sources": [
+            "HR-007 v1"
+          ]
+        },
+        "answer": null
+      },
+      {
+        "id": "G04",
+        "persona": "sam",
+        "category": "permission-denied",
+        "retrieved": [
+          "HR-007 v1",
+          "HR-001 v2",
+          "PUB-001 v2",
+          "ENG-012 v4",
+          "FIN-003 v3"
+        ],
+        "failed": [
+          "context_leak"
+        ],
+        "details": {
+          "leaked_sources": [
+            "HR-007 v1"
+          ]
+        },
+        "answer": null
+      },
+      {
+        "id": "G05",
+        "persona": "dana",
+        "category": "permission-allowed",
+        "retrieved": [
+          "HR-007 v1",
+          "HR-001 v2",
+          "PUB-001 v2",
+          "ENG-012 v4",
+          "FIN-003 v3"
+        ],
+        "failed": [
+          "context_leak"
+        ],
+        "details": {
+          "leaked_sources": [
+            "ENG-012 v4"
+          ]
+        },
+        "answer": null
+      },
+      {
+        "id": "G06",
+        "persona": "riley",
+        "category": "permission-denied",
+        "retrieved": [
+          "ENG-012 v4",
+          "HR-001 v2",
+          "PUB-001 v2",
+          "HR-007 v1",
+          "FIN-003 v3"
+        ],
+        "failed": [
+          "context_leak"
+        ],
+        "details": {
+          "leaked_sources": [
+            "ENG-012 v4",
+            "HR-001 v2",
+            "HR-007 v1",
+            "FIN-003 v3"
+          ]
+        },
+        "answer": null
+      },
+      {
+        "id": "G07",
+        "persona": "sam",
+        "category": "unanswerable",
+        "retrieved": [
+          "HR-007 v1",
+          "PUB-001 v2",
+          "HR-001 v2",
+          "ENG-012 v4",
+          "FIN-003 v3"
+        ],
+        "failed": [
+          "context_leak"
+        ],
+        "details": {
+          "leaked_sources": [
+            "HR-007 v1"
+          ]
+        },
+        "answer": null
+      },
+      {
+        "id": "G08",
+        "persona": "riley",
+        "category": "factual",
+        "retrieved": [
+          "PUB-001 v2",
+          "HR-001 v2",
+          "HR-007 v1",
+          "ENG-012 v4",
+          "FIN-003 v3"
+        ],
+        "failed": [
+          "context_leak"
+        ],
+        "details": {
+          "leaked_sources": [
+            "HR-001 v2",
+            "HR-007 v1",
+            "ENG-012 v4",
+            "FIN-003 v3"
+          ]
+        },
+        "answer": null
+      },
+      {
+        "id": "G09",
+        "persona": "priya",
+        "category": "version-conflict",
+        "retrieved": [
+          "HR-001 v2",
+          "FIN-003 v3",
+          "ENG-012 v4",
+          "PUB-001 v2",
+          "HR-007 v1"
+        ],
+        "failed": [
+          "context_leak"
+        ],
+        "details": {
+          "leaked_sources": [
+            "ENG-012 v4",
+            "HR-007 v1"
+          ]
+        },
+        "answer": null
+      },
+      {
+        "id": "G10",
+        "persona": "priya",
+        "category": "table",
+        "retrieved": [
+          "FIN-003 v3",
+          "ENG-012 v4",
+          "HR-001 v2",
+          "HR-007 v1",
+          "PUB-001 v2"
+        ],
+        "failed": [
+          "context_leak"
+        ],
+        "details": {
+          "leaked_sources": [
+            "ENG-012 v4",
+            "HR-007 v1"
+          ]
+        },
+        "answer": null
+      }
+    ]
+  }
+]

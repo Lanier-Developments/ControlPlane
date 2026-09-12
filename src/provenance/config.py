@@ -5,7 +5,9 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     database_url: str = "postgresql+psycopg://rag:rag@localhost:5432/rag"
-    collection: str = "corpus_v1"
+    # Retrieval role. Must be NOBYPASSRLS — never the owner.
+    app_database_url: str = "postgresql+psycopg://rag_app:rag_app@localhost:5432/rag"
+    personas_file: str = "evals/personas.yaml"
     corpus_dir: str = "corpus/seed"
 
     ollama_base_url: str = "http://localhost:11434"
@@ -20,6 +22,15 @@ class Settings(BaseSettings):
     chunk_size: int = 800
     chunk_overlap: int = 100
     top_k: int = 5
+
+    # Phase 3 retrieval
+    retrieval_mode: str = "hybrid"  # vector | hybrid
+    fetch_k: int = 20               # candidates per list before fusion
+    rrf_k: int = 60                 # RRF damping; larger flattens rank influence
+    vector_weight: float = 1.0
+    keyword_weight: float = 1.0
+    prefer_active: bool = True
+    superseded_penalty: float = 0.3
 
 
 settings = Settings()

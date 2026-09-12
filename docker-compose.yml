@@ -26,6 +26,7 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgresql+psycopg://rag:rag@db:5432/rag
+      APP_DATABASE_URL: postgresql+psycopg://rag_app:rag_app@db:5432/rag
     extra_hosts: ["host.docker.internal:host-gateway"]
     depends_on:
       db: { condition: service_healthy }

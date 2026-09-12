@@ -40,6 +40,24 @@ def load_yaml(path: str) -> dict:
     return (yaml.safe_load(p.read_text()) or {}) if p.exists() else {}
 
 
+def corpus_acls() -> dict[str, set[str]]:
+    """Entitlements read from the corpus files, not from retrieved metadata.
+
+    Deliberately independent: asking a retrieved chunk to report its own ACL would
+    let a leak vouch for itself. The scorer's source of truth is the authoring
+    format, which is what the ingest path is supposed to honor.
+    """
+    from pathlib import Path as _Path
+
+    from .config import settings
+    from .ingest import load_corpus
+
+    return {
+        f"{d.metadata['doc_id']} v{d.metadata['version']}": set(d.metadata["acl"])
+        for d in load_corpus(_Path(settings.corpus_dir))
+    }
+
+
 def source_key(meta: dict) -> str:
     return f"{meta['doc_id']} v{meta['version']}"
 
@@ -59,7 +77,10 @@ def score_item(item: dict, groups: list[str], tier: str) -> dict:
 
     failed, details = [], {}
 
-    leaks = [k for k, m in retrieved.items() if not set(m["acl"]) & set(groups)]
+    acls = corpus_acls()
+    # A retrieved source absent from the corpus is itself a failure, so an unknown
+    # key must not be treated as permitted.
+    leaks = [k for k in retrieved if not acls.get(k, set()) & set(groups)]
     if leaks:
         failed.append("context_leak")
         details["leaked_sources"] = leaks
@@ -185,6 +206,9 @@ def main() -> int:
 
     items = yaml.safe_load(Path(args.golden).read_text())
     personas = load_yaml(args.personas)
+    from .db import assert_rls_enforced
+
+    assert_rls_enforced()  # a green gate must mean enforcement was actually on
     baseline = load_yaml(args.baseline)
 
     results = []

@@ -1,4 +1,3 @@
--- Runs once on a fresh volume. Same content as schema.sql (applied by `make migrate`).
 -- Phase 4: owned schema with row-level security.
 -- Idempotent. Applied by `make migrate` as the owner role.
 --

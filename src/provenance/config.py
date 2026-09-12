@@ -21,7 +21,7 @@ class Settings(BaseSettings):
 
     chunk_size: int = 800
     chunk_overlap: int = 100
-    top_k: int = 5
+    top_k: int = 8
 
     # Phase 3 retrieval
     retrieval_mode: str = "hybrid"  # vector | hybrid
@@ -31,6 +31,15 @@ class Settings(BaseSettings):
     keyword_weight: float = 1.0
     prefer_active: bool = True
     superseded_penalty: float = 0.3
+
+    # Phase 5 gateway
+    registry_file: str = "policy/models.yaml"
+    routing_policy_file: str = "policy/routing.yaml"
+    default_model: str = ""          # empty = registry default_model
+    cache_enabled: bool = True
+    cache_ttl_seconds: int = 3600
+    litellm_base_url: str = "http://localhost:4000/v1"
+    litellm_api_key: str = ""
 
 
 settings = Settings()

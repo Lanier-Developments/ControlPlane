@@ -34,23 +34,9 @@ PROMPT = ChatPromptTemplate.from_messages([("system", SYSTEM), ("human", "{quest
 
 
 def llm():
-    if settings.llm_provider == "bedrock":
-        from langchain_aws import ChatBedrockConverse
-
-        if not settings.bedrock_model_id:
-            raise RuntimeError("LLM_PROVIDER=bedrock but BEDROCK_MODEL_ID is empty")
-        return ChatBedrockConverse(
-            model=settings.bedrock_model_id, region_name=settings.aws_region, temperature=0
-        )
-
-    from langchain_ollama import ChatOllama
-
-    return ChatOllama(
-        model=settings.ollama_chat_model,
-        base_url=settings.ollama_base_url,
-        temperature=0,
-        seed=settings.llm_seed,
-    )
+    """Deprecated in Phase 5. Model calls go through the gateway, which is the only
+    place policy can be enforced. Kept so nothing silently imports a client again."""
+    raise RuntimeError("Call provenance.gateway.complete() instead of constructing a client")
 
 
 def format_context(docs: list[Document]) -> str:
@@ -73,9 +59,23 @@ def retrieve(question: str, user: str | None = None) -> list[Document]:
     return search(question, user)
 
 
-def generate(question: str, docs: list[Document]) -> str:
-    message = (PROMPT | llm()).invoke({"context": format_context(docs), "question": question})
-    return _text(message.content)
+def generate(question: str, docs: list[Document], user: str | None = None) -> str:
+    """Answer through the gateway. Returns text; ask() exposes the governance detail."""
+    return generate_full(question, docs, user).text
+
+
+def generate_full(question: str, docs: list[Document], user: str | None = None):
+    from .gateway import complete
+    from .identity import groups_for
+
+    system = SYSTEM.format(context=format_context(docs))
+    return complete(
+        question,
+        system=system,
+        classifications=[d.metadata.get("classification", "internal") for d in docs],
+        groups=groups_for(user) if user else [],
+        principal=user,
+    )
 
 
 def ask(question: str, user: str | None = None) -> dict:
@@ -90,7 +90,8 @@ def ask(question: str, user: str | None = None) -> dict:
             "answer": "I don't have any information available to you that answers that.",
             "sources": [],
         }
-    answer = generate(question, docs)
+    completion = generate_full(question, docs, user)
+    answer = completion.text
 
     seen, sources = set(), []
     for d in docs:
@@ -111,6 +112,23 @@ def ask(question: str, user: str | None = None) -> dict:
         "permissions_enforced": True,
         "answer": answer,
         "sources": sources,
+        "governance": {
+            "correlation_id": completion.correlation_id,
+            "model": completion.model_id,
+            "classification": max(
+                (s["classification"] for s in sources),
+                key=["public", "internal", "confidential", "restricted"].index,
+                default="public",
+            ),
+            "decisions": [
+                {"rule_id": d.rule_id, "allowed": d.allowed, "reason": d.reason,
+                 "model": d.model.id if d.model else None}
+                for d in completion.decisions
+            ],
+            "cache_hit": completion.cache_hit,
+            "cost_usd": completion.cost_usd,
+            "latency_ms": completion.latency_ms,
+        },
     }
 
 

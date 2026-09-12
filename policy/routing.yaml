@@ -1,0 +1,60 @@
+# Routing policy. Rules are data, not code.
+#
+# Evaluated top to bottom; the first matching rule decides. If no rule matches, the
+# request is denied — the default is at the bottom and it is a deny, so a policy file
+# that fails to cover a case fails closed rather than falling through to allow.
+#
+# In production this belongs in OPA, where the same rules become Rego and can be
+# tested, versioned, and distributed independently of the application. The shape here
+# is deliberately OPA-compatible: a decision, a reason, and a rule id on every answer.
+#
+# Match keys (all optional; an absent key matches anything):
+#   classification  most sensitive classification in the retrieved context
+#   tier            local | cloud, from the model registry
+#   status          approved | deprecated | retired, from the model registry
+#   groups_any      caller holds at least one of these groups
+
+rules:
+  - id: retired-model-refused
+    match: { status: retired }
+    decision: deny
+    reason: Model is retired in the registry
+
+  - id: restricted-stays-local
+    match: { classification: restricted, tier: cloud }
+    decision: deny
+    reason: Restricted content may not be sent to an external provider
+
+  - id: confidential-stays-local
+    match: { classification: confidential, tier: cloud }
+    decision: deny
+    reason: Confidential content may not be sent to an external provider
+
+  - id: local-any-classification
+    match: { tier: local, status: approved }
+    decision: allow
+    reason: Self-hosted inference is approved for all classifications
+
+  - id: local-deprecated-allowed
+    match: { tier: local, status: deprecated }
+    decision: allow
+    reason: Deprecated model still approved; migrate before retirement
+
+  - id: cloud-public-internal
+    match: { classification: internal, tier: cloud, status: approved }
+    decision: allow
+    reason: Internal content is approved for the external provider
+
+  - id: cloud-public
+    match: { classification: public, tier: cloud, status: approved }
+    decision: allow
+    reason: Public content is approved for the external provider
+
+  - id: default-deny
+    match: {}
+    decision: deny
+    reason: No rule permits this combination
+
+# When a request is denied, fall back to this model rather than failing the request,
+# provided the fallback itself passes policy. Set to null to fail the request instead.
+fallback_model: ollama/llama3.1:8b

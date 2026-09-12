@@ -94,3 +94,37 @@ END $$;
 GRANT USAGE ON SCHEMA public TO rag_app;
 GRANT SELECT ON documents, doc_acl, chunks TO rag_app;
 REVOKE INSERT, UPDATE, DELETE ON documents, doc_acl, chunks FROM rag_app;
+
+-- Phase 5: every model call is recorded, allowed or denied.
+-- A denied call is evidence too — it is how you prove the policy was applied
+-- rather than merely configured.
+CREATE TABLE IF NOT EXISTS model_calls (
+    call_id          uuid PRIMARY KEY,
+    occurred_at      timestamptz NOT NULL DEFAULT now(),
+    correlation_id   uuid        NOT NULL,
+    principal        text,
+    requested_model  text        NOT NULL,
+    resolved_model   text,
+    classification   text        NOT NULL,
+    decision         text        NOT NULL,   -- allow | deny
+    reason           text        NOT NULL,
+    rule_id          text,
+    cache_hit        boolean     NOT NULL DEFAULT false,
+    prompt_tokens    int,
+    completion_tokens int,
+    cost_usd         numeric(12, 6),
+    latency_ms       int
+);
+
+CREATE INDEX IF NOT EXISTS model_calls_occurred_idx ON model_calls (occurred_at DESC);
+CREATE INDEX IF NOT EXISTS model_calls_correlation_idx ON model_calls (correlation_id);
+
+CREATE TABLE IF NOT EXISTS response_cache (
+    cache_key   text PRIMARY KEY,
+    model_id    text        NOT NULL,
+    response    text        NOT NULL,
+    created_at  timestamptz NOT NULL DEFAULT now(),
+    hits        int         NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS response_cache_created_idx ON response_cache (created_at);

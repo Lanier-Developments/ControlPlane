@@ -16,3 +16,5 @@ eval:          ; python -m provenance.evals --tier retrieval
 eval-full:     ; python -m provenance.evals --tier full
 baseline:      ; python -m provenance.evals --tier full --write-baseline
 compare:       ; python -m provenance.compare vector hybrid
+policy-test:   ; python -m provenance.policy_test
+usage:         ; python -m provenance.usage --hours 24

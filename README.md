@@ -58,7 +58,7 @@ Full runs: `docs/baseline-phase2.json` (naive) and `docs/phase4-enforced.json` (
 | 2 | Evaluation discipline | Golden set scorer + GitHub Actions ratchet gate (**done**) |
 | 3 | Retrieval quality | Hybrid (pgvector + full-text) with RRF, version-aware ranking, comparison harness (**done**) |
 | 4 | Permission-aware retrieval | Owned schema, ACL propagation, Postgres row-level security, RLS suite (**done**) |
-| 5 | Governed model access | LiteLLM gateway, model registry/allowlist, OPA policy, caching, cost tracking |
+| 5 | Governed model access | Model registry, data-classification routing policy, gateway choke point, cache, cost attribution (**done**) |
 | 6 | Evidence and observability | Hash-chained evidence ledger, correlation IDs, Langfuse tracing |
 | 7 | Agentic retrieval and red team | LangGraph rewrite/grade loop, poisoned-document test suite |
 
@@ -146,7 +146,39 @@ make eval                                      # leak count should be 0
 
 **Known gaps.** Group membership comes from `evals/personas.yaml`, a stand-in for an identity provider; Phase 5 replaces the source without touching retrieval. Deletes in the source system are not yet detected — a document removed upstream stays indexed until the next full ingest.
 
-## Layout
+## Governed model access (Phase 5)
+
+```bash
+make migrate       # adds model_calls and response_cache
+make policy-test   # pure policy evaluation: no database, no model, no network
+make usage         # spend and policy decisions from the call log
+```
+
+**The registry is data.** Adding, repricing, deprecating or retiring a model is an edit to `policy/models.yaml`. No enum, no code change, no release.
+
+This is the direct lesson from a prior control-plane build where model selection ran off an enum in application code. Every new provider meant a pull request, a release and a rollback risk, and the list of what was actually approved lived in code, in a wiki, and in someone's head — three sources that disagreed. The registry carries a retired entry on purpose: a retired model must be *refused*, not quietly absent.
+
+**Policy is data too, and it fails closed.** Rules in `policy/routing.yaml` are evaluated in order, first match decides, and the last rule is a deny — so a policy file that fails to anticipate a case refuses rather than falling through to allow. The shape is deliberately OPA-compatible (a decision, a reason and a rule id on every answer), so moving the rules to Rego is a transport change, not a redesign.
+
+**The registry ceiling outranks the rule file.** A model's `max_classification` is checked before any rule runs. A permissive rule cannot grant a model access to data more sensitive than its own registry entry allows — the two have to agree, and the stricter one wins.
+
+**Classification comes from the retrieved context, and the most sensitive chunk governs.** One confidential chunk constrains the whole call, because a prompt is indivisible once it is sent. In practice that means a question Dana asks about salary bands cannot be answered by an external provider, while the same question shape about public content can.
+
+**One choke point.** `gateway.complete()` is the only code in the system that constructs a model client. `chain.llm()` now raises if anything tries to build one directly, because a policy layer that one direct call can bypass is decoration.
+
+**Refusals are logged before anything else runs.** A denial that leaves no trace is indistinguishable from a policy that was never evaluated. `model_calls` records the refusal, the rule that produced it, and the fallback that actually answered.
+
+**Cache and cost.** Responses are cached on a hash of model plus full prompt, with a TTL. Cost is attributed per call from the registry's rates. Token counts are estimates (~4 characters per token) and labelled as such — exact accounting needs provider usage fields, which Phase 6 records. An estimate everyone knows is an estimate beats a precise-looking number nobody checked.
+
+`make usage` reports which rules are firing and how often calls are refused, not just the dollar total. Which rules fire is the governance question; the dollars are a side effect.
+
+**Two rules in the file never fire, and that is documented rather than hidden.** With the current registry, the ceiling catches a cloud model plus sensitive data before the rule file is consulted, so `confidential-stays-local` and `restricted-stays-local` are unreachable. They are real defense in depth — they catch a future registry edit that mis-registers a cloud model as restricted-capable — but an untested rule is false assurance, so `make policy-test` exercises both against a synthetic registry entry.
+
+**The eval gate disables the cache.** A cached run would report 44 passes without calling the model once. The gate measures the model; the cache is for serving.
+
+Measured on the full golden set: 44 calls, 0 denied, all routed to self-hosted inference, $0.00 — the corpus contains confidential and restricted documents, so every call that touches them is constrained to local by policy rather than by configuration.
+
+
 
 ```
 corpus/SPEC.md        synthetic company, personas, frontmatter schema, deliberate traps

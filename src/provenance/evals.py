@@ -121,7 +121,7 @@ def score_item(item: dict, groups: list[str], tier: str) -> dict:
 
     answer = None
     if tier == "full":
-        answer = generate(item["question"], docs)
+        answer = generate(item["question"], docs, item["persona"])
         low = answer.lower()
         absent = [s for s in item.get("must_include", []) if s.lower() not in low]
         if absent:
@@ -250,9 +250,13 @@ def main() -> int:
 
     items = yaml.safe_load(Path(args.golden).read_text())
     personas = load_yaml(args.personas)
+    from .config import settings
     from .db import assert_rls_enforced
 
     assert_rls_enforced()  # a green gate must mean enforcement was actually on
+    # The gate measures the model, not the cache. A cached run would report a pass
+    # without calling the model at all, which is a green light for nothing.
+    settings.cache_enabled = False
     baseline = load_yaml(args.baseline)
 
     results = []

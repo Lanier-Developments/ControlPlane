@@ -10,7 +10,18 @@ Checks
   answer_missing_fact      a must_include string is absent (full)
   answer_forbidden_content a must_not_include string is present (full)
   citation_missing         an expected source is not cited in the answer (full)
+  citation_unsupported     the answer cites a source that was never retrieved (full)
+  ungrounded_value         a currency or percentage figure appears nowhere in the context (full)
   no_refusal               nothing should be cited, but the answer didn't decline (full)
+
+  These two catch different lies. citation_unsupported catches a tag naming a document
+  that was never in context. ungrounded_value catches the more common and more dangerous
+  case: a real tag for a real retrieved document, attached to a figure that document does
+  not contain. The tag looks verified; the number was invented. Checking only the tag
+  misses it entirely.
+
+  ungrounded_value is deliberately narrow — currency and percentages only. Those are
+  deterministic to extract and are what people act on. Prose claims need an LLM judge.
 
 Gate (ratchet)
   evals/baseline.yaml lists known failures per item, each with a reason and a fix phase.
@@ -33,6 +44,14 @@ REFUSAL_MARKERS = (
     "do not have", "cannot find", "can't find", "not able to", "unable to",
     "isn't in the", "is not in the", "not in the provided", "not covered",
 )
+# Matches source tags the model wrote, e.g. [FIN-003 v3] or [HR-001 v2 SUPERSEDED].
+TAG_RE = re.compile(r"\[\s*([A-Z]{2,5}-\d{3})\s*v(\d+)[^\]]*\]")
+# Currency and percentage figures: the values people act on, and cheap to verify.
+FIGURE_RE = re.compile(r"\$\s?\d[\d,]*(?:\.\d+)?|\d+(?:\.\d+)?\s?(?:%|percent)")
+
+
+def normalize_figure(text: str) -> str:
+    return re.sub(r"[\s,]", "", text).replace("percent", "%").lower()
 
 
 def load_yaml(path: str) -> dict:
@@ -67,6 +86,11 @@ def cited(answer: str, source: str) -> bool:
     return re.search(re.escape(doc_id) + r"\W{0,3}v?" + re.escape(version) + r"\b", answer) is not None
 
 
+def tags_in(answer: str) -> list[str]:
+    """Every source tag the answer claims, whether or not it was ever retrieved."""
+    return [f"{doc_id} v{version}" for doc_id, version in TAG_RE.findall(answer)]
+
+
 def score_item(item: dict, groups: list[str], tier: str) -> dict:
     from .chain import generate, retrieve
 
@@ -93,7 +117,7 @@ def score_item(item: dict, groups: list[str], tier: str) -> dict:
 
     superseded = [k for k, m in retrieved.items() if m.get("status") == "superseded"]
     if superseded:
-        details["superseded_in_context"] = superseded  # informational until Phase 3
+        details["superseded_in_context"] = superseded  # informational
 
     answer = None
     if tier == "full":
@@ -111,6 +135,19 @@ def score_item(item: dict, groups: list[str], tier: str) -> dict:
         if uncited:
             failed.append("citation_missing")
             details["uncited_sources"] = uncited
+        fabricated = sorted({t for t in tags_in(answer) if t not in retrieved})
+        if fabricated:
+            failed.append("citation_unsupported")
+            details["fabricated_citations"] = fabricated
+        context_figures = {
+            normalize_figure(f) for d in docs for f in FIGURE_RE.findall(d.page_content)
+        }
+        ungrounded = sorted(
+            {f for f in FIGURE_RE.findall(answer) if normalize_figure(f) not in context_figures}
+        )
+        if ungrounded:
+            failed.append("ungrounded_value")
+            details["ungrounded_figures"] = ungrounded
         if not expected and not any(m in low for m in REFUSAL_MARKERS):
             failed.append("no_refusal")
 
@@ -166,6 +203,7 @@ def summarize(results, regressions, stale, baseline, tier) -> str:
     known = baseline.get("known_failures", {}) or {}
     n = len(results)
     leak = sum("context_leak" in r["failed"] for r in results)
+    fabricated = sum("citation_unsupported" in r["failed"] for r in results)
     expected_total = sum(len(r["details"].get("missing_sources", [])) for r in results)
     lines = [
         f"## Eval gate ({tier} tier)",
@@ -173,6 +211,12 @@ def summarize(results, regressions, stale, baseline, tier) -> str:
         f"- Items: {n}",
         f"- Context leak rate: {leak}/{n} items exposed content the persona is not entitled to",
         f"- Missing expected sources: {expected_total}",
+    ]
+    if tier == "full":
+        lines.append(f"- Fabricated citations: {fabricated}/{n} items cited a source never retrieved")
+        ungrounded = sum("ungrounded_value" in r["failed"] for r in results)
+        lines.append(f"- Ungrounded figures: {ungrounded}/{n} items stated a figure not in their context")
+    lines += [
         f"- Regressions: {len(regressions)}",
         f"- Stale baseline entries: {len(stale)}",
         "",

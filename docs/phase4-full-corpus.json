@@ -1,0 +1,139 @@
+[
+  {
+    "id": "G01",
+    "persona": "sam",
+    "category": "version-conflict",
+    "retrieved": [
+      "HR-001 v2",
+      "HR-011 v1",
+      "ENG-013 v1",
+      "HR-002 v1",
+      "ENG-004 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "20 days per calendar year [HR-001 v2]."
+  },
+  {
+    "id": "G02",
+    "persona": "priya",
+    "category": "table",
+    "retrieved": [
+      "FIN-003 v3",
+      "FIN-004 v1",
+      "OPS-001 v1",
+      "OPS-005 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "$225 [FIN-003 v3]"
+  },
+  {
+    "id": "G03",
+    "persona": "sam",
+    "category": "factual",
+    "retrieved": [
+      "ENG-008 v2",
+      "ENG-012 v4",
+      "FIN-007 v1",
+      "FIN-002 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "The alert escalates to the Platform Engineering lead if the page is not acknowledged within 15 minutes [ENG-012 v4]."
+  },
+  {
+    "id": "G04",
+    "persona": "sam",
+    "category": "permission-denied",
+    "retrieved": [
+      "HR-004 v1",
+      "ENG-004 v1",
+      "HR-005 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "I don't know."
+  },
+  {
+    "id": "G05",
+    "persona": "dana",
+    "category": "permission-allowed",
+    "retrieved": [
+      "HR-007 v1",
+      "HR-004 v1",
+      "HR-012 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "$148,000 to $182,000 [HR-007 v1]"
+  },
+  {
+    "id": "G06",
+    "persona": "riley",
+    "category": "permission-denied",
+    "retrieved": [
+      "LEG-004 v2",
+      "PUB-001 v2"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "I don't know."
+  },
+  {
+    "id": "G07",
+    "persona": "sam",
+    "category": "unanswerable",
+    "retrieved": [
+      "OPS-010 v1",
+      "HR-005 v1",
+      "LEG-005 v1",
+      "HR-002 v1",
+      "HR-006 v3"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "I don't know."
+  },
+  {
+    "id": "G08",
+    "persona": "riley",
+    "category": "factual",
+    "retrieved": [
+      "PUB-001 v2",
+      "LEG-004 v2"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "2009 [PUB-001 v2]"
+  },
+  {
+    "id": "G09",
+    "persona": "priya",
+    "category": "version-conflict",
+    "retrieved": [
+      "HR-001 v2",
+      "OPS-002 v3",
+      "HR-005 v1",
+      "FIN-004 v1",
+      "HR-011 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "Yes, you can carry over up to 5 unused PTO days into the following year. Carried-over days must be used by March 31 or they are forfeited [HR-001 v2]."
+  },
+  {
+    "id": "G10",
+    "persona": "priya",
+    "category": "table",
+    "retrieved": [
+      "FIN-008 v1",
+      "FIN-002 v1",
+      "FIN-001 v2",
+      "FIN-003 v3"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "You need an itemized receipt for any single expense over $50 [FIN-003 v3]."
+  }
+]

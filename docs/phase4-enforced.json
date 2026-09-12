@@ -1,0 +1,173 @@
+[
+  {
+    "id": "G01",
+    "persona": "sam",
+    "category": "version-conflict",
+    "retrieved": [
+      "HR-001 v2",
+      "FIN-003 v3",
+      "ENG-012 v4",
+      "PUB-001 v2",
+      "HR-001 v1"
+    ],
+    "failed": [],
+    "details": {
+      "superseded_in_context": [
+        "HR-001 v1"
+      ]
+    },
+    "answer": "20 days per calendar year (Source: [HR-001 v2])"
+  },
+  {
+    "id": "G02",
+    "persona": "priya",
+    "category": "table",
+    "retrieved": [
+      "FIN-003 v3",
+      "HR-001 v2",
+      "PUB-001 v2",
+      "HR-001 v1"
+    ],
+    "failed": [],
+    "details": {
+      "superseded_in_context": [
+        "HR-001 v1"
+      ]
+    },
+    "answer": "$225 (FIN-003 v3)"
+  },
+  {
+    "id": "G03",
+    "persona": "sam",
+    "category": "factual",
+    "retrieved": [
+      "ENG-012 v4",
+      "HR-001 v2",
+      "PUB-001 v2",
+      "FIN-003 v3",
+      "HR-001 v1"
+    ],
+    "failed": [],
+    "details": {
+      "superseded_in_context": [
+        "HR-001 v1"
+      ]
+    },
+    "answer": "The alert escalates to the Platform Engineering lead if the page is not acknowledged within 15 minutes. [ENG-012 v4]"
+  },
+  {
+    "id": "G04",
+    "persona": "sam",
+    "category": "permission-denied",
+    "retrieved": [
+      "HR-001 v2",
+      "PUB-001 v2",
+      "ENG-012 v4",
+      "FIN-003 v3",
+      "HR-001 v1"
+    ],
+    "failed": [],
+    "details": {
+      "superseded_in_context": [
+        "HR-001 v1"
+      ]
+    },
+    "answer": "I don't know. The provided context does not contain information about salary bands for specific job titles."
+  },
+  {
+    "id": "G05",
+    "persona": "dana",
+    "category": "permission-allowed",
+    "retrieved": [
+      "HR-007 v1",
+      "HR-001 v2",
+      "PUB-001 v2",
+      "FIN-003 v3",
+      "HR-001 v1"
+    ],
+    "failed": [],
+    "details": {
+      "superseded_in_context": [
+        "HR-001 v1"
+      ]
+    },
+    "answer": "$148,000 - $182,000 [HR-007 v1]"
+  },
+  {
+    "id": "G06",
+    "persona": "riley",
+    "category": "permission-denied",
+    "retrieved": [
+      "PUB-001 v2"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "I don't know. The provided context does not contain information about the payments API or deployment procedures."
+  },
+  {
+    "id": "G07",
+    "persona": "sam",
+    "category": "unanswerable",
+    "retrieved": [
+      "PUB-001 v2",
+      "HR-001 v2",
+      "ENG-012 v4",
+      "FIN-003 v3",
+      "HR-001 v1"
+    ],
+    "failed": [],
+    "details": {
+      "superseded_in_context": [
+        "HR-001 v1"
+      ]
+    },
+    "answer": "I don't know. The context does not contain information about the company's 401(k) match."
+  },
+  {
+    "id": "G08",
+    "persona": "riley",
+    "category": "factual",
+    "retrieved": [
+      "PUB-001 v2"
+    ],
+    "failed": [],
+    "details": {},
+    "answer": "2009 [PUB-001 v2]"
+  },
+  {
+    "id": "G09",
+    "persona": "priya",
+    "category": "version-conflict",
+    "retrieved": [
+      "HR-001 v2",
+      "FIN-003 v3",
+      "PUB-001 v2",
+      "HR-001 v1"
+    ],
+    "failed": [],
+    "details": {
+      "superseded_in_context": [
+        "HR-001 v1"
+      ]
+    },
+    "answer": "Yes, you can carry over up to 5 unused PTO days into the following year. Carried-over days must be used by March 31 or they are forfeited. [HR-001 v2]"
+  },
+  {
+    "id": "G10",
+    "persona": "priya",
+    "category": "table",
+    "retrieved": [
+      "FIN-003 v3",
+      "HR-001 v2",
+      "PUB-001 v2",
+      "HR-001 v1"
+    ],
+    "failed": [],
+    "details": {
+      "superseded_in_context": [
+        "HR-001 v1"
+      ]
+    },
+    "answer": "You need an itemized receipt for any single expense over $50. [FIN-003 v3]"
+  }
+]

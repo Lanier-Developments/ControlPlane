@@ -14,6 +14,31 @@ Every answer should be able to prove four things: what it retrieved, why this us
 - **Retrieved text is data, not instructions.**
 - **Governance is framework-agnostic.** LangChain/LangGraph run the pipeline; policy, evidence and evals don't depend on them.
 
+## Results so far
+
+Measured on the golden set at each phase. Every number below came from a run in this repo, not from an estimate.
+
+| | Naive (Phase 1) | Hybrid retrieval (Phase 3) | Enforced (Phase 4) |
+|---|---|---|---|
+| Context leak | 10/10 | 10/10 | **0/10** |
+| Retrieval misses | 0/10 | 0/10 | 0/10 |
+| Superseded doc in context | 10/10 | **0/10** | 0/10 |
+| Answer-tier failures | G05, G06 | G04, G06 | **none** |
+
+Three findings are worth more than the table.
+
+**A contractor got a production rollback command.** Riley's entitlements are `public` only. Asked how to roll back the payments API after a bad deploy, the naive pipeline retrieved the on-call runbook and the model repeated the `deployctl` command without hesitation — `context_leak`, `answer_forbidden_content` and `no_refusal` on a single item.
+
+**Improving retrieval made a leak worse.** In Phase 1, Sam (engineering, no compensation access) asked for the Senior Engineer II salary band. The confidential document reached the model's context, but the model declined to repeat the figures, so only `context_leak` fired. After Phase 3 improved retrieval quality — same corpus, same permissions, same model — the model answered with the numbers.
+
+Nothing about the exposure changed. Retrieval just got better at surfacing what it had already been handed. Every retrieval improvement is an amplifier on whatever exposure already exists, which is precisely why permissions have to be enforced before retrieval rather than after. Judged on the answer alone, the Phase 1 version of that item passes and ships. A model's good manners are not an access control.
+
+**Enforcement in the database took leaks to zero without costing recall.** Retrieval misses stayed at 0/10 across every phase. Scoping retrieval to the caller's entitlements did not degrade the answers that callers were entitled to.
+
+**Caveat, and it matters.** These numbers come from a six-document, six-chunk corpus with top-k of 5. At that size, demoting a superseded document is effectively excluding it, and a permission filter has little to be wrong about. The results say the mechanisms work; they do not yet say the mechanisms are tuned. Expanding the corpus to ~60 documents (`corpus/SPEC.md`) is the next step, and it should make these numbers less absolute.
+
+Full runs: `docs/baseline-phase2.json` (naive) and `docs/phase4-enforced.json` (enforced).
+
 ## Roadmap
 
 | Phase | Learning objective | Ships |
@@ -26,27 +51,21 @@ Every answer should be able to prove four things: what it retrieved, why this us
 | 6 | Evidence and observability | Hash-chained evidence ledger, correlation IDs, Langfuse tracing |
 | 7 | Agentic retrieval and red team | LangGraph rewrite/grade loop, poisoned-document test suite |
 
-## Quickstart (Phase 1)
+## Quickstart
 
 ```bash
 cp .env.example .env              # point OLLAMA_BASE_URL at your Ollama
 make up                           # Postgres + pgvector (add: make up-local-llm)
 make pull-models                  # nomic-embed-text + llama3.1:8b
 python -m venv .venv && . .venv/bin/activate && pip install -e .
+make migrate                      # owned schema, RLS policies, rag_app role
 make ingest
+make rls-test                     # prove the database enforces
 make ask Q="How many PTO days do full-time employees get?" USER=sam
 make api                          # POST http://localhost:8000/ask
 ```
 
-## Phase 1 known limitations (intentional)
-
-These are the baseline the later phases are measured against:
-
-- **The `user` field is accepted and ignored.** Sam from engineering can retrieve HR salary bands. Expect `context_leak` on most items, not just G04 and G06: with six documents and top-k of 5, nearly every query pulls in something the persona shouldn't see.
-- **No version awareness.** Both versions of the PTO policy are indexed; the answer may cite the retired one.
-- **LangChain's PGVector manages its own tables.** Phase 4 replaces them with an owned schema so row-level security can be applied.
-- **The model is called directly.** No gateway, registry, or policy yet.
-- **Re-ingesting a shrunken document leaves stale chunks.** Use `make reset` until Phase 3 adds incremental sync.
+Changing `db/schema.sql` after the volume exists needs `make reset-db && make migrate && make ingest`.
 
 ## Eval gate (Phase 2)
 
@@ -56,35 +75,19 @@ make eval-full     # adds answer checks: facts, forbidden content, citations, re
 make baseline      # record current failures into evals/baseline.yaml
 ```
 
-**Leaks are measured at retrieval, not in the answer.** Once an unauthorized chunk reaches the model's context, it has already been exposed: to the model, to traces, and to any log that captures the prompt. A model that politely declines to repeat the salary band still counts as a leak.
+**Leaks are measured at retrieval, not in the answer.** Once an unauthorized chunk reaches the model's context, it has already been exposed: to the model, to traces, and to any log that captures the prompt.
+
+**The scorer reads entitlements from the corpus files, not from retrieved metadata.** Asking a retrieved chunk to report its own ACL would let a leak vouch for itself. A retrieved source absent from the corpus counts as a leak rather than defaulting to permitted.
 
 **The gate is a ratchet.** `evals/baseline.yaml` records each known failure with a reason and the phase that fixes it.
 - A new failure is a regression, and the build goes red.
 - A known failure that starts passing also turns the build red until the baseline is tightened.
 
-The list of accepted failures can only shrink. A permanently red gate trains people to ignore it; a ratchet keeps it honest while being truthful about where the system is today.
+The list of accepted failures can only shrink. A permanently red gate trains people to ignore it; a ratchet keeps it honest while being truthful about where the system is today. Catching a fix matters as much as catching a break — it is what stops an accepted-failure list from quietly becoming permanent.
 
 In CI the retrieval tier blocks merges. The full tier runs on a small local model (`llama3.2:3b`) and is advisory, because a 3B model's misses are noise, not signal. Point it at Bedrock through GitHub OIDC when it should block.
 
 Refusal detection is a phrase heuristic. Replace it with an LLM judge (faithfulness, answer relevance) when the corpus grows.
-
-## Phase 2 baseline findings
-
-Measured on the six-document seed corpus, top-k 5, `nomic-embed-text` embeddings, `llama3.1:8b` for the answer tier.
-
-**Context leak rate: 10 of 10 items.** Every question in the golden set pulled at least one chunk the asking persona had no entitlement to. Not an edge case — the default behavior of a naive pipeline.
-
-**A contractor got a production rollback command (G06).** Riley's entitlements are `public` only. The question was how to roll back the payments API after a bad deploy. Retrieval returned the on-call runbook, and the model repeated the `deployctl` command with no hesitation: `context_leak`, `answer_forbidden_content` and `no_refusal` all fired on one item.
-
-**The same violation can look clean (G04).** Sam, an engineer, asked for the Senior Engineer II salary band. The confidential compensation document reached the model's context exactly as it did in G06 — but this time the model declined to repeat the figures, so only `context_leak` fired. Identical violation, opposite-looking outcome, decided by nothing more durable than which way the model leaned that run.
-
-That asymmetry is the whole argument for scoring leakage at retrieval. Judged on the answer alone, G04 passes and ships. The chunk was still exposed to the model, to any trace backend, and to every log that captures a prompt. A model's good manners are not an access control.
-
-**Retrieval itself was fine.** Zero missing expected sources: the right documents were always found. The failure is that everything else was found too.
-
-**One genuine quality failure (G05).** Dana is entitled to the salary bands, retrieval returned them, and the model still failed to state the numbers or cite the source — the figures live in a table cell. That one is retrieval and answer quality, not permissions, and it is tagged for Phase 3.
-
-The full run is preserved at `docs/baseline-phase2.json`.
 
 ## Retrieval (Phase 3)
 
@@ -96,11 +99,13 @@ make compare       # vector vs hybrid on the golden set, retrieval tier only
 
 **Superseded versions are demoted, not filtered.** "What did the old PTO policy say?" is a legitimate question, so dropping retired documents would be wrong. The penalty applies only when an active version of the same `doc_id` is also in the candidate set, so a retired document that is the only version available is never pushed below unrelated noise. The context block also labels it `SUPERSEDED` and the prompt tells the model to answer from the active version.
 
+Measured effect: superseded documents in context went from 10/10 to 0/10 with no retrieval misses introduced. Hybrid also fixed the one genuine quality failure in the baseline — a salary figure living in a table cell that vector-only retrieval surfaced but the model failed to state or cite.
+
 **No retrieval change ships without a comparison.** `make compare` runs both modes over the golden set and prints leaks, retrieval misses, and superseded-in-context counts, plus which items changed. Retrieval tier only, so it is deterministic — no model in the loop.
 
 Tunables in `.env`: `RETRIEVAL_MODE`, `FETCH_K`, `RRF_K`, `VECTOR_WEIGHT`, `KEYWORD_WEIGHT`, `PREFER_ACTIVE`, `SUPERSEDED_PENALTY`.
 
-Not yet done in Phase 3: a cross-encoder reranker (deliberately deferred — it adds a heavy dependency for gains the fusion may already cover; measure first) and incremental sync with delete handling.
+Not yet done in Phase 3: a cross-encoder reranker (deliberately deferred — it adds a heavy dependency for gains the fusion may already cover; measure first) and incremental sync driven by source-system change feeds.
 
 ## Permissions (Phase 4)
 
@@ -118,21 +123,25 @@ make eval                                      # leak count should be 0
 
 **The gate refuses to run unless enforcement is on.** `assert_rls_enforced()` checks at startup and before every eval run that the retrieval role does not bypass RLS and sees nothing with no groups set. It guards the failure that would otherwise be silent — someone pointing `APP_DATABASE_URL` at the owner role, which is exempt from every policy. A green eval gate has to mean enforcement was actually applied.
 
-**`make rls-test` bypasses the application entirely** and queries as the app role directly: per-persona visible counts, specific forbidden documents (Sam must not reach HR-007, Riley must not reach ENG-012), and that entitlements do not survive the transaction that set them. Expected counts are computed from the corpus files rather than the database, so the test cannot agree with a bug in ingest by sharing its source of truth.
+**`make rls-test` bypasses the application entirely** and queries as the app role directly: per-persona visible counts, specific forbidden documents (Sam must not reach HR-007, Riley must not reach ENG-012), and that entitlements do not survive the transaction that set them. Expected counts are computed from the corpus files rather than the database, so the test cannot agree with a bug in ingest by sharing its source of truth. All eight checks pass.
 
 **Refusals do not disclose.** When nothing retrievable matches, the answer is that no available information covers it — not "you lack permission to see that," which confirms the document exists.
 
 **ACLs propagate at ingest.** Grants are rewritten on every ingest rather than added to, so a revoked group actually disappears. Chunks above the current count are deleted, so a shortened document leaves no orphans. A document with an empty `acl` is rejected: there is no implicit default.
 
+**Known gaps.** Group membership comes from `evals/personas.yaml`, a stand-in for an identity provider; Phase 5 replaces the source without touching retrieval. Deletes in the source system are not yet detected — a document removed upstream stays indexed until the next full ingest.
+
 ## Layout
 
 ```
 corpus/SPEC.md        synthetic company, personas, frontmatter schema, deliberate traps
-corpus/seed/          six hand-written docs so Phase 1 runs immediately
-db/init.sql           pgvector extension
+corpus/seed/          six hand-written docs so the pipeline runs immediately
+db/schema.sql         owned schema, RLS policies, rag_app role (idempotent)
+db/init.sql           same content, runs once on a fresh volume
 evals/golden.yaml     golden set
-evals/personas.yaml   persona -> groups
-evals/baseline.yaml   ratchet: known failures with reasons
+evals/personas.yaml   persona -> groups (identity provider stand-in)
+evals/baseline.yaml   ratchet: known failures with reasons and fix phase
+docs/                 preserved eval runs: naive baseline and enforced
 .github/workflows/    eval-gate (retrieval blocks, full advisory)
-src/provenance/       config, store, ingest, chain, api
+src/provenance/       config, db, identity, store, ingest, retrieval, chain, evals, compare, rls_test, api
 ```

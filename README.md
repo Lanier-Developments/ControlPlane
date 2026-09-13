@@ -229,6 +229,14 @@ A prompt is a shared resource: every instruction added to defend against an atta
 
 **What no attack achieved was a permission bypass** — and that is not the model's doing. Nothing unauthorized was in the context to leak, because row-level security scoped the candidate set before ranking. Injection cannot exfiltrate what was never retrieved. An injection can make the model emit `OVERRIDE-ACCEPTED`; it cannot make Postgres return a row the caller has no grant for, and every attempt is in the ledger.
 
+## Repo metadata check
+
+```bash
+make repo-meta-check   # confirm the GitHub About description and topics are set
+```
+
+**Discoverability is not the same question as correctness.** Every other check in this pipeline asks whether the system behaves — eval gate, RLS, red team. None of them notice if the repo itself becomes unfindable: a rename, a fork, or a repo edit can silently clear the About description or topics, and nothing about the code changes. This check reads the public GitHub API and fails if either is empty. It runs as its own CI job, parallel to `policy`, because it depends on GitHub's API rather than this repo's code and shouldn't wait on a Postgres service or a model pull.
+
 ## Layout
 
 ```
@@ -243,8 +251,8 @@ evals/personas.yaml   persona -> groups (identity provider stand-in)
 evals/baseline.yaml   ratchet: known failures with reasons and fix phase
 docs/FINDINGS.md      what the measurements turned out to mean
 docs/*.json           preserved eval runs: naive baseline and enforced
-.github/workflows/    policy job, then eval-gate (retrieval blocks, full advisory)
+.github/workflows/    policy job, repo-meta job, then eval-gate (retrieval blocks, full advisory)
 src/provenance/       config, db, identity, store, ingest, retrieval, chain, gateway,
                       registry, evidence, audit, evals, compare, usage,
-                      rls_test, policy_test, api
+                      rls_test, policy_test, repo_meta_check, api
 ```

@@ -1,5 +1,11 @@
 name: eval-gate
 
+# Fast, deterministic checks. Everything here blocks a merge, so everything here has
+# to finish in minutes: no chat model, no answer generation.
+#
+# The full tier (44 sequential generations) moved to eval-full.yml on a nightly
+# schedule. A gate nobody waits for is a gate nobody reads.
+
 on:
   pull_request:
   push:
@@ -38,27 +44,17 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python -m provenance.repo_meta_check
 
-  eval:
+  # Retrieval tier plus row-level security. Embeddings only — no generation — so this
+  # is minutes rather than the half hour the full tier takes on a shared runner.
+  eval-retrieval:
     runs-on: ubuntu-latest
     needs: policy
-    strategy:
-      fail-fast: false
-      matrix:
-        tier: [retrieval, full]
-    # Retrieval tier blocks merges. Full tier is advisory: a 3B model's answer-quality
-    # misses are noise, not signal. Point DEFAULT_MODEL at a real model and drop this
-    # when the full tier should block.
-    continue-on-error: ${{ matrix.tier == 'full' }}
 
     env:
       DATABASE_URL: postgresql+psycopg://rag:rag@localhost:5432/rag
       APP_DATABASE_URL: postgresql+psycopg://rag_app:rag_app@localhost:5432/rag
       OLLAMA_BASE_URL: http://localhost:11434
       EMBED_MODEL: nomic-embed-text
-      # Model selection comes from policy/models.yaml, not from a provider setting.
-      # This must name a registry entry, and CI must pull the model it points to.
-      DEFAULT_MODEL: ollama/llama3.2:3b
-      CI_CHAT_MODEL: llama3.2:3b
       TOP_K: "8"
       MODELS_DIR: /home/runner/ollama-models
 
@@ -92,13 +88,12 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ${{ env.MODELS_DIR }}
-          key: ollama-${{ env.EMBED_MODEL }}-${{ matrix.tier == 'full' && env.CI_CHAT_MODEL || 'embed-only' }}
+          key: ollama-${{ env.EMBED_MODEL }}-embed-only
 
-      - name: Pull models
+      - name: Pull embedding model
         run: |
-          pull() { curl -sf "$OLLAMA_BASE_URL/api/pull" -d "{\"model\": \"$1\", \"stream\": false}" > /dev/null; }
-          pull "$EMBED_MODEL"
-          if [ "${{ matrix.tier }}" = "full" ]; then pull "$CI_CHAT_MODEL"; fi
+          curl -sf "$OLLAMA_BASE_URL/api/pull" \
+            -d "{\"model\": \"$EMBED_MODEL\", \"stream\": false}" > /dev/null
 
       - name: Save model cache
         if: steps.models.outputs.cache-hit != 'true'
@@ -124,16 +119,12 @@ jobs:
       - name: Row-level security
         run: python -m provenance.rls_test
 
-      - name: Score golden set
-        run: python -m provenance.evals --tier ${{ matrix.tier }} --report eval-report-${{ matrix.tier }}.json
-
-      - name: Model call log
-        if: always()
-        run: python -m provenance.usage --hours 24
+      - name: Score golden set (retrieval tier)
+        run: python -m provenance.evals --tier retrieval --report eval-report-retrieval.json
 
       - name: Upload report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: eval-report-${{ matrix.tier }}
-          path: eval-report-${{ matrix.tier }}.json
+          name: eval-report-retrieval
+          path: eval-report-retrieval.json

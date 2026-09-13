@@ -23,3 +23,4 @@ trace:         ; python -m provenance.audit trace $(ID)
 tamper-demo:   ; python -m provenance.audit tamper-demo
 append-only:   ; python -m provenance.audit append-only
 redteam:       ; python -m provenance.redteam --user sam
+judge:         ; python -m provenance.evals --tier full --judge

@@ -39,6 +39,8 @@ from pathlib import Path
 import yaml
 
 RETRIEVAL_CHECKS = {"context_leak", "retrieval_miss"}
+# Non-deterministic checks. Reported always, gated only with --judge-blocks.
+JUDGE_CHECKS = {"ungrounded_claim", "judge_inconclusive"}
 REFUSAL_MARKERS = (
     "don't know", "do not know", "not available", "no information", "don't have",
     "do not have", "cannot find", "can't find", "not able to", "unable to",
@@ -91,7 +93,7 @@ def tags_in(answer: str) -> list[str]:
     return [f"{doc_id} v{version}" for doc_id, version in TAG_RE.findall(answer)]
 
 
-def score_item(item: dict, groups: list[str], tier: str) -> dict:
+def score_item(item: dict, groups: list[str], tier: str, judge: bool = False) -> dict:
     from .chain import generate, retrieve
 
     docs = retrieve(item["question"], user=item["persona"])
@@ -154,6 +156,18 @@ def score_item(item: dict, groups: list[str], tier: str) -> dict:
             details["ungrounded_figures"] = ungrounded
         if not expected and not any(m in low for m in REFUSAL_MARKERS):
             failed.append("no_refusal")
+
+        if judge:
+            from .judge import check_attribution
+
+            verdict = check_attribution(answer, docs, item["persona"])
+            details["judge"] = verdict
+            if verdict["ungrounded"]:
+                failed.append("ungrounded_claim")
+            if verdict["unknown"]:
+                # Surfaced, never silently passed: a check that fails open is worse
+                # than no check, because it still reports a number.
+                failed.append("judge_inconclusive")
 
     return {
         "id": item["id"],
@@ -220,6 +234,14 @@ def summarize(results, regressions, stale, baseline, tier) -> str:
         lines.append(f"- Fabricated citations: {fabricated}/{n} items cited a source never retrieved")
         ungrounded = sum("ungrounded_value" in r["failed"] for r in results)
         lines.append(f"- Ungrounded figures: {ungrounded}/{n} items stated a figure not in their context")
+        judged = [r for r in results if "judge" in r["details"]]
+        if judged:
+            claims = sum(r["details"]["judge"]["checked"] for r in judged)
+            bad = sum("ungrounded_claim" in r["failed"] for r in results)
+            unsure = sum("judge_inconclusive" in r["failed"] for r in results)
+            lines.append(f"- Judge (advisory): {claims} claims checked, "
+                         f"{bad}/{n} items with a claim its citation does not support, "
+                         f"{unsure} inconclusive")
     lines += [
         f"- Regressions: {len(regressions)}",
         f"- Stale baseline entries: {len(stale)}",
@@ -229,10 +251,14 @@ def summarize(results, regressions, stale, baseline, tier) -> str:
     ]
     reg_ids = {i for i, _ in regressions}
     for r in results:
+        gated = [c for c in r["failed"] if c not in JUDGE_CHECKS]
         if r["id"] in reg_ids:
             status = "REGRESSION"
-        elif r["failed"]:
+        elif r["id"] in known and gated:
             status = f"known (phase {known.get(r['id'], {}).get('fix_phase') or '?'})"
+        elif r["failed"]:
+            # Judge findings on an item with no gated failure: advisory, not accepted.
+            status = "advisory"
         else:
             status = "pass"
         lines.append(f"| {r['id']} | {r['persona']} | {r['category']} | {', '.join(r['failed']) or '-'} | {status} |")
@@ -250,6 +276,13 @@ def main() -> int:
     ap.add_argument("--baseline", default="evals/baseline.yaml")
     ap.add_argument("--report", default="eval-report.json")
     ap.add_argument("--write-baseline", action="store_true")
+    ap.add_argument(
+        "--judge", action="store_true",
+        help="also run the LLM attribution judge (advisory: non-deterministic, "
+             "reported separately and excluded from the gate unless --judge-blocks)",
+    )
+    ap.add_argument("--judge-blocks", action="store_true",
+                    help="let judge findings count as regressions")
     args = ap.parse_args()
 
     items = yaml.safe_load(Path(args.golden).read_text())
@@ -267,7 +300,7 @@ def main() -> int:
     for item in items:
         if item["persona"] not in personas:
             raise ValueError(f"{item['id']}: unknown persona {item['persona']}")
-        results.append(score_item(item, personas[item["persona"]], args.tier))
+        results.append(score_item(item, personas[item["persona"]], args.tier, args.judge))
 
     Path(args.report).write_text(json.dumps(results, indent=2))
 
@@ -276,7 +309,17 @@ def main() -> int:
         print(f"Wrote {args.baseline}. Fill in reason and fix_phase, then commit.")
         return 0
 
-    regressions, stale = apply_gate(results, baseline, args.tier)
+    # Judge findings are reported but kept out of the gate by default. An LLM grading
+    # an LLM is not ground truth, and a non-deterministic check that blocks merges will
+    # eventually block one for no reason.
+    gate_results = results
+    if args.judge and not args.judge_blocks:
+        gate_results = [
+            {**r, "failed": [c for c in r["failed"] if c not in JUDGE_CHECKS]}
+            for r in results
+        ]
+
+    regressions, stale = apply_gate(gate_results, baseline, args.tier)
     summary = summarize(results, regressions, stale, baseline, args.tier)
     print(summary)
     if os.environ.get("GITHUB_STEP_SUMMARY"):

@@ -1,10 +1,49 @@
-# provenance-rag
+# ControlPlane
+
+[![eval-gate](https://github.com/Lanier-Developments/ControlPlane/actions/workflows/eval-gate.yml/badge.svg)](https://github.com/Lanier-Developments/ControlPlane/actions/workflows/eval-gate.yml)
+[![License: MIT](https://img.shields.io/github/license/Lanier-Developments/ControlPlane)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](pyproject.toml)
 
 A governance-first reference implementation of enterprise RAG.
 
 Every answer should be able to prove four things: what it retrieved, why this user was allowed to see it, which approved model produced it, and that the system passed its eval gates before release.
 
-> Working name. Rename freely before the first public push.
+## Architecture
+
+```mermaid
+flowchart TD
+    U["User question + identity"] --> R
+
+    subgraph DB["Postgres — row-level security"]
+        R["Hybrid retrieval<br/>vector + full-text, RRF fused"]
+        ACL[("doc_acl")]
+        R -. "entitlements scope the<br/>candidate set, not a post-filter" .-> ACL
+    end
+
+    R --> CTX["Retrieved chunks<br/>tagged by classification"]
+    CTX --> GW
+
+    subgraph GOV["Governed model access"]
+        GW{{"gateway.complete<br/>one choke point"}}
+        REG[("policy/models.yaml<br/>registry + ceiling")]
+        RULES[("policy/routing.yaml<br/>routing rules, deny-by-default")]
+        GW --> REG
+        GW --> RULES
+    end
+
+    GW -->|"allowed"| MODEL["Approved model"]
+    GW -->|"denied"| REFUSE["Refusal<br/>no approved model permitted"]
+    MODEL --> ANSWER["Answer + citations"]
+
+    ANSWER --> LEDGER[("Evidence ledger<br/>hash-chained, append-only")]
+    REFUSE --> LEDGER
+
+    style DB fill:#eef4ff,stroke:#5b7fd1
+    style GOV fill:#fff3e6,stroke:#d19a5b
+    style LEDGER fill:#f3eefc,stroke:#8a5bd1
+```
+
+Every arrow is enforced where it's drawn, not merely documented: permissions inside Postgres via row-level security ([Phase 4](#permissions-phase-4)), model access through one gateway checked against a registry ceiling and a deny-by-default rule file ([Phase 5](#governed-model-access-phase-5)), and every answer — allowed or refused — written to a tamper-evident ledger ([Phase 6](#evidence-ledger-phase-6)).
 
 ## Principles
 

@@ -40,7 +40,7 @@ flowchart TD
 
     style DB fill:#eef4ff,stroke:#5b7fd1
     style GOV fill:#fff3e6,stroke:#d19a5b
-    style LEDGER fill:#f3eefc,stroke:#8a5bd1
+    style LEDGER fill:#f3eefc,stroke:#8a5bd1,color:#000000
 ```
 
 Every arrow is enforced where it's drawn, not merely documented: permissions inside Postgres via row-level security ([Phase 4](#permissions-phase-4)), model access through one gateway checked against a registry ceiling and a deny-by-default rule file ([Phase 5](#governed-model-access-phase-5)), and every answer — allowed or refused — written to a tamper-evident ledger ([Phase 6](#evidence-ledger-phase-6)).

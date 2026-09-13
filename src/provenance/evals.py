@@ -45,6 +45,9 @@ REFUSAL_MARKERS = (
     "don't know", "do not know", "not available", "no information", "don't have",
     "do not have", "cannot find", "can't find", "not able to", "unable to",
     "isn't in the", "is not in the", "not in the provided", "not covered",
+    "does not provide", "doesn't provide", "not explicitly stated", "not stated in",
+    "does not specify", "doesn't specify", "does not mention", "doesn't mention",
+    "does not indicate", "doesn't indicate", "not addressed",
 )
 # Matches source tags the model wrote, e.g. [FIN-003 v3] or [HR-001 v2 SUPERSEDED].
 TAG_RE = re.compile(r"\[\s*([A-Z]{2,5}-\d{3})\s*v(\d+)[^\]]*\]")

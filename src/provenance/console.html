@@ -90,6 +90,8 @@
 
 <main>
   <div>
+    <div class="panel" id="demobanner" style="display:none;border-color:#3a4152;
+         background:#1b2029;font-size:13px;color:var(--dim)"></div>
     <div class="panel">
       <h2>Ask</h2>
       <div class="row">
@@ -171,29 +173,27 @@
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
 
-const EXAMPLES = [
-  ["Salary band (confidential)", "dana", "What is the salary band for a Senior Engineer II?"],
-  ["Same question, no entitlement", "sam", "What is the salary band for a Senior Engineer II?"],
-  ["Rollback command (contractor)", "riley", "How do I roll back the payments API after a bad deploy?"],
-  ["Public fact", "riley", "When was Kestrel Ridge Outfitters founded?"],
-  ["Version conflict", "sam", "How many PTO days do full-time employees get per year?"],
-  ["Authority conflict", "sam", "How long do we retain access and audit logs?"],
-  ["Unanswerable", "sam", "What is the company's 401(k) match?"],
-];
+let EXAMPLES = [];
 
 async function boot() {
-  const [p, m] = await Promise.all([
+  const [p, m, demo] = await Promise.all([
     fetch("/api/personas").then(r => r.json()),
     fetch("/api/models").then(r => r.json()),
+    fetch("/api/demo").then(r => r.json()),
   ]);
+
+  EXAMPLES = demo.examples;
 
   $("persona").innerHTML = p.personas.map(x =>
     `<option value="${x.id}">${x.id} — ${x.groups.join(", ")}</option>`).join("");
   $("persona").value = "dana";
 
+  const allowed = demo.allowed_models;
   $("model").innerHTML = `<option value="">registry default (${esc(m.default)})</option>` +
-    m.models.filter(x => x.status !== "retired").map(x =>
-      `<option value="${x.id}">${x.id} (${x.tier})</option>`).join("");
+    m.models.filter(x => x.status !== "retired").map(x => {
+      const blocked = allowed && !allowed.includes(x.id);
+      return `<option value="${x.id}">${x.id} (${x.tier})${blocked ? " — disabled here" : ""}</option>`;
+    }).join("");
 
   $("registry").innerHTML = m.models.map(x => `<tr>
       <td class="mono">${esc(x.id)}</td><td>${esc(x.tier)}</td>
@@ -202,13 +202,34 @@ async function boot() {
     </tr>`).join("");
 
   $("examples").innerHTML = EXAMPLES.map((e, i) =>
-    `<button data-i="${i}">${esc(e[0])}</button>`).join("");
+    `<button data-i="${i}">${esc(e.label)}</button>`).join("");
   $("examples").onclick = ev => {
     const i = ev.target.dataset.i;
     if (i === undefined) return;
-    $("persona").value = EXAMPLES[i][1];
-    $("q").value = EXAMPLES[i][2];
+    $("persona").value = EXAMPLES[i].persona;
+    $("q").value = EXAMPLES[i].question;
   };
+
+  if (demo.demo_mode) {
+    const bits = [];
+    if (demo.canned_only) {
+      bits.push("answers only the example questions below");
+      $("q").readOnly = true;
+      $("q").style.opacity = ".75";
+    }
+    if (allowed) bits.push("self-hosted models only — cloud routing is disabled");
+    if (demo.rate_per_minute) bits.push(`${demo.rate_per_minute} questions per minute`);
+    $("demobanner").innerHTML =
+      `<strong>Hosted demo:</strong> ${bits.join(" · ")}. ` +
+      `Everything else is the real system — clone the repo to run it unrestricted. ` +
+      `Cloud routing figures are in <span class="mono">docs/FINDINGS.md</span>.`;
+    $("demobanner").style.display = "block";
+  }
+
+  if (EXAMPLES.length) {
+    $("persona").value = EXAMPLES[0].persona;
+    $("q").value = EXAMPLES[0].question;
+  }
 
   loadLedger(); loadUsage();
 }

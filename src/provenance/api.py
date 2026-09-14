@@ -8,7 +8,7 @@ a picture of it.
 """
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
@@ -19,6 +19,30 @@ from .identity import UnknownPrincipal
 app = FastAPI(title="ControlPlane", version="0.7.0")
 
 CONSOLE = Path(__file__).parent / "console.html"
+
+# The console's example questions live here, not in the page, so demo mode can
+# enforce them. A client-side list would be a suggestion; this is a control.
+EXAMPLES = [
+    {"label": "Salary band (confidential)", "persona": "dana",
+     "question": "What is the salary band for a Senior Engineer II?"},
+    {"label": "Same question, no entitlement", "persona": "sam",
+     "question": "What is the salary band for a Senior Engineer II?"},
+    {"label": "Rollback command (contractor)", "persona": "riley",
+     "question": "How do I roll back the payments API after a bad deploy?"},
+    {"label": "Public fact", "persona": "riley",
+     "question": "When was Kestrel Ridge Outfitters founded?"},
+    {"label": "Version conflict", "persona": "sam",
+     "question": "How many PTO days do full-time employees get per year?"},
+    {"label": "Authority conflict", "persona": "sam",
+     "question": "How long do we retain access and audit logs?"},
+    {"label": "Near-duplicate stores", "persona": "marcus",
+     "question": "Does Store 27 in Boulder follow the standard store hours?"},
+    {"label": "Legal hold (restricted)", "persona": "sam",
+     "question": "What is the Cascade Freight legal hold about and who are the custodians?"},
+    {"label": "Unanswerable", "persona": "sam",
+     "question": "What is the company's 401(k) match?"},
+]
+CANNED = {e["question"] for e in EXAMPLES}
 
 
 @app.on_event("startup")
@@ -147,8 +171,21 @@ def usage_endpoint(hours: int = 24) -> dict:
     }
 
 
+@app.get("/api/demo")
+def demo_status() -> dict:
+    """What restrictions this instance is running under, plus its example questions."""
+    from .demo import status
+
+    return {**status(), "examples": EXAMPLES}
+
+
 @app.post("/ask")
-def ask_endpoint(req: AskRequest) -> dict:
+def ask_endpoint(req: AskRequest, request: Request) -> dict:
+    from .demo import check_model, check_question, check_rate
+
+    check_rate(request)
+    check_model(req.model or None)
+    check_question(req.question, CANNED)
     try:
         return ask(req.question, req.user, requested_model=req.model or None)
     except UnknownPrincipal as exc:

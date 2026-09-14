@@ -44,5 +44,12 @@ class Settings(BaseSettings):
     litellm_base_url: str = "http://localhost:4000/v1"
     litellm_api_key: str = ""
 
+    # Demo mode: for a publicly reachable instance.
+    # Off by default so local development is unrestricted.
+    demo_mode: bool = False
+    demo_allowed_models: str = "ollama/llama3.1:8b"  # comma-separated registry ids
+    demo_rate_per_minute: int = 6
+    demo_canned_only: bool = True
+
 
 settings = Settings()

@@ -120,8 +120,13 @@ def _invoke(model: Model, prompt: str, system: str | None) -> str:
         model_id = model.model or settings.bedrock_model_id
         if not model_id:
             raise RuntimeError(f"{model.id}: no model id. Set BEDROCK_MODEL_ID.")
+        # Some models reject temperature outright (Claude Sonnet 5 among them) and
+        # langchain warns then drops it. Note the consequence rather than burying it
+        # in a warning: those runs are not reproducible the way the local ones are,
+        # so an eval diff against them can move without anything having changed.
+        kwargs = {} if model.no_temperature else {"temperature": 0}
         client = ChatBedrockConverse(
-            model=model_id, region_name=settings.aws_region, temperature=0
+            model=model_id, region_name=settings.aws_region, **kwargs
         )
     elif model.provider == "litellm":
         # LiteLLM as a drop-in proxy: same registry entry, different transport.

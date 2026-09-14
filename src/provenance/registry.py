@@ -40,6 +40,9 @@ class Model:
     max_classification: str
     cost_per_1k_input: float
     cost_per_1k_output: float
+    # Some models reject a temperature parameter. Declared in the registry rather than
+    # special-cased in code — the whole point is that model quirks are config.
+    no_temperature: bool = False
     notes: str = ""
 
     def cost(self, prompt_tokens: int, completion_tokens: int) -> float:

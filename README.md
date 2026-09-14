@@ -102,7 +102,7 @@ turned out to mean, the three checks a green gate has to survive, and what is st
 | 4 | Permission-aware retrieval | Owned schema, ACL propagation, Postgres row-level security, RLS suite (**done**) |
 | 5 | Governed model access | Model registry, data-classification routing policy, gateway choke point, cache, cost attribution (**done**) |
 | 6 | Evidence and observability | Hash-chained append-only evidence ledger, correlation ids, audit and tamper-detection tooling (**done**) |
-| 7 | Agentic retrieval and red team | LangGraph rewrite/grade loop, poisoned-document test suite |
+| 7 | Agentic retrieval and red team | 8-class prompt-injection suite with context fencing measured, LLM attribution judge, demo console (**partial** — LangGraph rewrite/grade loop not built) |
 
 ## Quickstart
 
@@ -115,7 +115,7 @@ make migrate                      # owned schema, RLS policies, rag_app role
 make ingest
 make rls-test                     # prove the database enforces
 make ask Q="How many PTO days do full-time employees get?" USER=sam
-make api                          # POST http://localhost:8000/ask
+make api                          # console at http://localhost:8000
 ```
 
 Changing `db/schema.sql` after the volume exists needs `make reset-db && make migrate && make ingest`.
@@ -276,6 +276,27 @@ make repo-meta-check   # confirm the GitHub About description and topics are set
 
 **Discoverability is not the same question as correctness.** Every other check in this pipeline asks whether the system behaves — eval gate, RLS, red team. None of them notice if the repo itself becomes unfindable: a rename, a fork, or a repo edit can silently clear the About description or topics, and nothing about the code changes. This check reads the public GitHub API and fails if either is empty. It runs as its own CI job, parallel to `policy`, because it depends on GitHub's API rather than this repo's code and shouldn't wait on a Postgres service or a model pull.
 
+## Console
+
+```bash
+make api     # http://localhost:8000
+```
+
+![ControlPlane console](docs/console.png)
+
+A single page over the same API the CLI uses. Nothing on it is mocked: every field comes from a real response, so what it demonstrates is the system rather than a picture of one.
+
+Pick a persona, pick a model, ask. The page shows the answer, the retrieved documents with their classifications, and every routing decision with the rule that produced it — alongside the live ledger, 24-hour spend by rule, and the model registry.
+
+**The ninety-second demo**, using the example buttons:
+
+1. **Salary band (confidential)** as `dana`, with the Bedrock model requested. Two decision cards: a red DENY on `registry-ceiling`, a green ALLOW on self-hosted inference. Cost $0.00 — the salary band never left the network.
+2. **Same question, no entitlement** as `sam`. The confidential document disappears from the retrieved set entirely. It isn't withheld from the answer; it was never retrieved.
+3. **Public fact** as `riley`, Bedrock requested. Green ALLOW on `cloud-public`, with a real cost attached.
+4. **Verify chain.** All four questions are in the ledger, and the chain recomputes clean.
+
+Permissions, routing, cost and evidence — without reading any code.
+
 ## Layout
 
 ```
@@ -289,6 +310,7 @@ evals/golden.yaml     44 items across 9 categories
 evals/personas.yaml   persona -> groups (identity provider stand-in)
 evals/baseline.yaml   ratchet: known failures with reasons and fix phase
 docs/FINDINGS.md      what the measurements turned out to mean
+docs/console.png      console screenshot
 docs/*.json           preserved eval runs: naive baseline and enforced
 .github/workflows/    policy job, repo-meta job, then eval-gate (retrieval blocks, full advisory)
 src/provenance/       config, db, identity, store, ingest, retrieval, chain, gateway,

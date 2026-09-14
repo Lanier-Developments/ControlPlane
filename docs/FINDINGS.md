@@ -190,9 +190,65 @@ attacker had planted in the poisoned document itself, cited correctly to that do
 Relabelled content-injection: the achievable harm through this channel is planting false
 facts that get repeated with a citation, not reading files the caller cannot see.
 
+## 11. Policy routing across two providers, and the blind spot it creates
+
+The registry gained a second provider — Claude Sonnet 4.6 on Bedrock, capped at
+`internal` — and the golden set ran again with that model requested for every item.
+
+| | |
+|---|---|
+| Calls | 46 |
+| Answered by Claude | 32 |
+| Denied and routed to self-hosted inference | 14 |
+| Cost | $0.1857 |
+
+The 14 denials are all `registry-ceiling`: the retrieved context for those items included
+confidential or restricted documents, so the cloud model was refused and the local model
+answered. Roughly **30% of this corpus is too sensitive to leave the network** under its
+own classification policy — a governance fact about a document estate, which is the kind
+of number most organizations do not have about their own content.
+
+**The blind spot.** Both recorded known failures — the misattribution and the
+fencing-induced over-caution — are on confidential items. Both were denied to Claude and
+fell back to the same local model that produced them, so the run reproduced them exactly
+and learned nothing about whether a stronger model would clear them.
+
+That is not a bug in the harness. It is what the policy means: **the content you most
+want a capable model on is the content policy will not let you send there.** Any
+evaluation of a cloud model against a governed corpus is an evaluation of the
+public-and-internal subset only. Improving answer quality on sensitive material means
+improving the model you can self-host, or moving the data-handling agreement — not
+switching providers.
+
+**A related caution about the numbers.** This was not a clean model comparison. Claude
+answered 32 items and the local model answered 14, chosen by classification rather than
+at random. It measures the system under a routing policy, not one model against another.
+
+## 12. Registry churn is the normal case, not the exception
+
+Bringing up one provider over a single morning produced: a model id that changed twice
+(bare foundation-model id, then a cross-region inference profile), a provider that
+rejects the `temperature` parameter other providers require, published rates that
+differed from the placeholder, a model gated separately from the rest of its family, and
+an access path that turned out to need a vendor use-case form.
+
+Every one of those was an edit to `policy/models.yaml`. None touched application code.
+
+This is the concrete case against the pattern it was built to replace — model selection
+running off an enum in application code — where each of those six changes would have
+been a pull request, a release, and a rollback risk. The argument is not that config is
+tidier. It is that provider details change on the provider's schedule, not yours, and
+anything that makes a vendor's Tuesday into your deploy is the wrong shape.
+
+One gap the exercise exposed: the cross-region profile means AWS may route a request to
+any US region. The registry models *which model may see which classification* but has no
+field for *where inference may physically happen*. Data residency is a separate policy
+axis and is not yet represented.
+
 ---
 
 ## What is still open
+
 
 
 - **Misattribution is not caught by any deterministic check.** On one item the model
@@ -209,3 +265,15 @@ facts that get repeated with a citation, not reading files the caller cannot see
   until the next full ingest.
 - **Token counts are estimates** (~4 characters per token), labelled as such. Exact
   accounting needs provider usage fields.
+- **Routing has one dimension.** Classification decides the model. A real control plane
+  also routes on cost, latency, capability and provider health, and fails over when a
+  provider is down — here the fallback fires only on a policy denial, never on an error.
+- **No data-residency axis.** The registry says which model may see which classification,
+  not where inference may physically run.
+- **No quotas or budgets.** Cost is attributed after the fact; nothing enforces a ceiling.
+- **No prompt registry.** Models are registered and versioned; prompts are not, even
+  though a prompt change has been shown here to move eval results.
+- **The refusal check is phrase-matched and model-specific.** The marker list had to be
+  extended for the local model, then again for Claude — the same correct refusal, phrased
+  differently. It will need extending for the next model too. That maintenance cost is
+  the argument for the attribution judge, observed rather than asserted.

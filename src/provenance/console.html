@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ControlPlane — governed RAG console</title>
+<style>
+  :root {
+    --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2a2f3a;
+    --fg:#e6e8ec; --dim:#9aa3b2; --accent:#5b9dd9;
+    --ok:#5bbd8a; --deny:#d9735b; --warn:#d9b35b;
+    --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg);
+         font:15px/1.5 system-ui, -apple-system, sans-serif; }
+  header { padding:18px 24px; border-bottom:1px solid var(--line);
+           display:flex; align-items:baseline; gap:16px; flex-wrap:wrap; }
+  header h1 { margin:0; font-size:17px; font-weight:600; letter-spacing:.2px; }
+  header .sub { color:var(--dim); font-size:13px; }
+  header a { color:var(--accent); font-size:13px; text-decoration:none; margin-left:auto; }
+  main { display:grid; grid-template-columns:minmax(0,1fr) 420px; gap:20px;
+         padding:20px 24px; align-items:start; }
+  main > div:last-child { position:sticky; top:20px; max-height:calc(100vh - 40px);
+                          overflow-y:auto; }
+  @media (max-width:1000px){
+    main { grid-template-columns:1fr; }
+    main > div:last-child { position:static; max-height:none; overflow:visible; }
+  }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px;
+           padding:16px; margin-bottom:16px; }
+  .panel h2 { margin:0 0 12px; font-size:12px; text-transform:uppercase;
+              letter-spacing:.09em; color:var(--dim); font-weight:600; }
+  label { display:block; font-size:12px; color:var(--dim); margin-bottom:5px; }
+  select, textarea, input {
+    width:100%; background:var(--panel2); color:var(--fg);
+    border:1px solid var(--line); border-radius:7px; padding:9px 10px;
+    font:inherit; font-size:14px;
+  }
+  textarea { resize:vertical; min-height:62px; }
+  .row { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
+  button { background:var(--accent); color:#0b0d11; border:0; border-radius:7px;
+           padding:10px 18px; font:inherit; font-weight:600; cursor:pointer; }
+  button:disabled { opacity:.5; cursor:default; }
+  button.ghost { background:transparent; color:var(--accent);
+                 border:1px solid var(--line); font-weight:500; }
+  .examples { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+  .examples button { background:var(--panel2); color:var(--dim); border:1px solid var(--line);
+                     font-size:12px; font-weight:400; padding:6px 10px; }
+  .answer { white-space:pre-wrap; background:var(--panel2); border:1px solid var(--line);
+            border-radius:8px; padding:14px; min-height:60px; }
+  .muted { color:var(--dim); }
+  .kv { display:grid; grid-template-columns:138px 1fr; gap:6px 12px; font-size:13px; }
+  .kv div:nth-child(odd) { color:var(--dim); }
+  .mono { font-family:var(--mono); font-size:12px; word-break:break-all; }
+  .decision { border-left:3px solid var(--line); padding:9px 12px; margin-bottom:8px;
+              background:var(--panel2); border-radius:0 7px 7px 0; font-size:13px; }
+  .decision.allow { border-left-color:var(--ok); }
+  .decision.deny  { border-left-color:var(--deny); }
+  .decision .rule { font-family:var(--mono); font-size:11px; color:var(--dim); }
+  .tag { display:inline-block; font-size:10.5px; padding:2px 7px; border-radius:99px;
+         border:1px solid var(--line); color:var(--dim); text-transform:uppercase;
+         letter-spacing:.05em; }
+  .tag.public{color:#7fb8e8;border-color:#2f4a63}
+  .tag.internal{color:#8fc9a6;border-color:#2f4f3d}
+  .tag.confidential{color:var(--warn);border-color:#5c4a24}
+  .tag.restricted{color:var(--deny);border-color:#63342a}
+  table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  th { text-align:left; color:var(--dim); font-weight:500; padding:5px 6px;
+       border-bottom:1px solid var(--line); font-size:11px; text-transform:uppercase;
+       letter-spacing:.05em; }
+  td { padding:6px; border-bottom:1px solid var(--line); vertical-align:top; }
+  tr:last-child td { border-bottom:0; }
+  .chunk { display:flex; justify-content:space-between; gap:10px; padding:6px 0;
+           border-bottom:1px solid var(--line); font-size:13px; }
+  .chunk:last-child { border-bottom:0; }
+  .status { font-size:12px; padding:8px 11px; border-radius:7px; margin-top:10px; }
+  .status.ok { background:#14261c; color:var(--ok); }
+  .status.bad { background:#2a1714; color:var(--deny); }
+  .spin { color:var(--dim); font-size:13px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>ControlPlane</h1>
+  <span class="sub">Permission-scoped retrieval · policy-routed inference · evidence ledger</span>
+  <a href="https://github.com/Lanier-Developments/ControlPlane" target="_blank">repo ↗</a>
+</header>
+
+<main>
+  <div>
+    <div class="panel">
+      <h2>Ask</h2>
+      <div class="row">
+        <div>
+          <label for="persona">Persona (entitlements)</label>
+          <select id="persona"></select>
+        </div>
+        <div>
+          <label for="model">Requested model</label>
+          <select id="model"></select>
+        </div>
+      </div>
+      <label for="q">Question</label>
+      <textarea id="q">What is the salary band for a Senior Engineer II?</textarea>
+      <div class="examples" id="examples"></div>
+      <div style="margin-top:12px;display:flex;gap:10px;align-items:center">
+        <button id="go">Ask</button>
+        <span class="spin" id="spin"></span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Answer</h2>
+      <div class="answer" id="answer"><span class="muted">No question asked yet.</span></div>
+    </div>
+
+    <div class="panel">
+      <h2>Retrieved context <span class="muted" id="chunkcount"></span></h2>
+      <div id="chunks"><span class="muted">—</span></div>
+      <p class="muted" style="font-size:12px;margin:12px 0 0">
+        Enforced by Postgres row-level security before ranking. Documents this persona
+        is not entitled to are not filtered out of the results — they are never in them.
+      </p>
+    </div>
+  </div>
+
+  <div>
+    <div class="panel">
+      <h2>Routing decisions</h2>
+      <div id="decisions"><span class="muted">—</span></div>
+      <div class="kv" id="govkv" style="margin-top:12px"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Evidence ledger</h2>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <button class="ghost" id="verify">Verify chain</button>
+        <button class="ghost" id="refresh">Refresh</button>
+      </div>
+      <div id="verifyout"></div>
+      <table><thead><tr><th>#</th><th>Principal</th><th>Class</th><th>Decision</th><th>Model</th></tr></thead>
+      <tbody id="ledger"><tr><td colspan="5" class="muted">—</td></tr></tbody></table>
+      <p class="muted" style="font-size:12px;margin:10px 0 0">
+        Append-only and hash-chained. Stores a digest of the answer, never the text —
+        an audit trail that copied confidential content would be its own breach.
+      </p>
+    </div>
+
+    <div class="panel">
+      <h2>Spend and decisions (24h)</h2>
+      <div class="kv" id="usagekv"></div>
+      <table style="margin-top:10px"><thead><tr><th>Rule</th><th>Decision</th><th>Calls</th><th>Cost</th></tr></thead>
+      <tbody id="usage"><tr><td colspan="4" class="muted">—</td></tr></tbody></table>
+    </div>
+
+    <div class="panel">
+      <h2>Model registry</h2>
+      <table><thead><tr><th>Model</th><th>Tier</th><th>Max class</th><th>Status</th></tr></thead>
+      <tbody id="registry"><tr><td colspan="4" class="muted">—</td></tr></tbody></table>
+      <p class="muted" style="font-size:12px;margin:10px 0 0">
+        Adding, repricing or retiring a model is an edit to <span class="mono">policy/models.yaml</span>.
+        No code change.
+      </p>
+    </div>
+  </div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+
+const EXAMPLES = [
+  ["Salary band (confidential)", "dana", "What is the salary band for a Senior Engineer II?"],
+  ["Same question, no entitlement", "sam", "What is the salary band for a Senior Engineer II?"],
+  ["Rollback command (contractor)", "riley", "How do I roll back the payments API after a bad deploy?"],
+  ["Public fact", "riley", "When was Kestrel Ridge Outfitters founded?"],
+  ["Version conflict", "sam", "How many PTO days do full-time employees get per year?"],
+  ["Authority conflict", "sam", "How long do we retain access and audit logs?"],
+  ["Unanswerable", "sam", "What is the company's 401(k) match?"],
+];
+
+async function boot() {
+  const [p, m] = await Promise.all([
+    fetch("/api/personas").then(r => r.json()),
+    fetch("/api/models").then(r => r.json()),
+  ]);
+
+  $("persona").innerHTML = p.personas.map(x =>
+    `<option value="${x.id}">${x.id} — ${x.groups.join(", ")}</option>`).join("");
+  $("persona").value = "dana";
+
+  $("model").innerHTML = `<option value="">registry default (${esc(m.default)})</option>` +
+    m.models.filter(x => x.status !== "retired").map(x =>
+      `<option value="${x.id}">${x.id} (${x.tier})</option>`).join("");
+
+  $("registry").innerHTML = m.models.map(x => `<tr>
+      <td class="mono">${esc(x.id)}</td><td>${esc(x.tier)}</td>
+      <td><span class="tag ${x.max_classification}">${esc(x.max_classification)}</span></td>
+      <td>${x.status === "retired" ? '<span style="color:var(--deny)">retired</span>' : esc(x.status)}</td>
+    </tr>`).join("");
+
+  $("examples").innerHTML = EXAMPLES.map((e, i) =>
+    `<button data-i="${i}">${esc(e[0])}</button>`).join("");
+  $("examples").onclick = ev => {
+    const i = ev.target.dataset.i;
+    if (i === undefined) return;
+    $("persona").value = EXAMPLES[i][1];
+    $("q").value = EXAMPLES[i][2];
+  };
+
+  loadLedger(); loadUsage();
+}
+
+async function askQuestion() {
+  $("go").disabled = true;
+  $("spin").textContent = "asking…";
+  $("answer").innerHTML = '<span class="muted">…</span>';
+  $("decisions").innerHTML = ""; $("govkv").innerHTML = ""; $("chunks").innerHTML = "";
+
+  try {
+    const res = await fetch("/ask", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        question: $("q").value, user: $("persona").value, model: $("model").value || null,
+      }),
+    });
+    if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
+    render(await res.json());
+    loadLedger(); loadUsage();
+  } catch (e) {
+    $("answer").innerHTML = `<span style="color:var(--deny)">${esc(e.message)}</span>`;
+  } finally {
+    $("go").disabled = false; $("spin").textContent = "";
+  }
+}
+
+function render(d) {
+  $("answer").textContent = d.answer;
+
+  const g = d.governance || {};
+  $("decisions").innerHTML = (g.decisions || []).map(x => `
+    <div class="decision ${x.allowed ? "allow" : "deny"}">
+      <strong>${x.allowed ? "ALLOW" : "DENY"}</strong> ${esc(x.model || "")}<br>
+      <span class="muted">${esc(x.reason)}</span><br>
+      <span class="rule">rule: ${esc(x.rule_id)}</span>
+    </div>`).join("") || '<span class="muted">—</span>';
+
+  $("govkv").innerHTML = [
+    ["Answered by", esc(g.model || "—")],
+    ["Context class", g.classification
+      ? `<span class="tag ${g.classification}">${esc(g.classification)}</span>` : "—"],
+    ["Cost", g.cache_hit ? '<span class="muted">$0.000000 — served from cache</span>'
+      : (g.cost_usd !== undefined ? "$" + Number(g.cost_usd).toFixed(6) : "—")],
+    ["Latency", g.cache_hit ? '<span class="muted">cached</span>'
+      : (g.latency_ms !== undefined ? g.latency_ms + " ms" : "—")],
+    ["Evidence", g.evidence_seq ? "#" + g.evidence_seq : "—"],
+    ["Correlation", `<span class="mono">${esc(g.correlation_id || "—")}</span>`],
+  ].map(([k, v]) => `<div>${k}</div><div>${v}</div>`).join("");
+
+  const src = d.sources || [];
+  $("chunkcount").textContent = src.length ? `(${src.length} documents)` : "";
+  $("chunks").innerHTML = src.map(s => `
+    <div class="chunk">
+      <span>${esc(s.doc_id)} v${s.version} <span class="muted">${esc(s.title)}</span>
+        ${s.status === "superseded" ? '<span class="tag">superseded</span>' : ""}</span>
+      <span class="tag ${s.classification}">${esc(s.classification)}</span>
+    </div>`).join("") ||
+    '<span class="muted">Nothing this persona is entitled to matched.</span>';
+}
+
+async function loadLedger() {
+  const d = await fetch("/api/evidence?limit=8").then(r => r.json());
+  $("ledger").innerHTML = d.entries.map(e => `<tr>
+      <td>${e.seq}</td><td>${esc(e.principal || "—")}</td>
+      <td><span class="tag ${e.classification}">${esc(e.classification)}</span></td>
+      <td>${esc(e.decision)}</td><td class="mono">${esc(e.model || "—")}</td>
+    </tr>`).join("") || '<tr><td colspan="5" class="muted">Empty</td></tr>';
+}
+
+async function loadUsage() {
+  const d = await fetch("/api/usage?hours=24").then(r => r.json());
+  $("usagekv").innerHTML = [
+    ["Calls", d.calls], ["Denied", d.denied], ["Cost", "$" + d.cost_usd.toFixed(4)],
+  ].map(([k, v]) => `<div>${k}</div><div>${v}</div>`).join("");
+  $("usage").innerHTML = d.by_rule.map(r => `<tr>
+      <td class="mono">${esc(r.rule_id)}</td>
+      <td style="color:${r.decision === "deny" ? "var(--deny)" : "var(--ok)"}">${esc(r.decision)}</td>
+      <td>${r.calls}</td><td>$${r.cost_usd.toFixed(4)}</td>
+    </tr>`).join("") || '<tr><td colspan="4" class="muted">No calls yet</td></tr>';
+}
+
+$("go").onclick = askQuestion;
+$("refresh").onclick = () => { loadLedger(); loadUsage(); };
+$("verify").onclick = async () => {
+  $("verifyout").innerHTML = '<div class="status">Recomputing…</div>';
+  const v = await fetch("/api/verify").then(r => r.json());
+  $("verifyout").innerHTML = v.ok
+    ? `<div class="status ok">Chain intact — ${v.checked} entries verified</div>`
+    : `<div class="status bad">CHAIN BROKEN at #${v.broken_at} — ${esc(v.why)}</div>`;
+};
+
+boot();
+</script>
+</body>
+</html>

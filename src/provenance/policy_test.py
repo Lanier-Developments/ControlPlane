@@ -20,7 +20,7 @@ from .registry import (
 )
 
 LOCAL = "ollama/llama3.1:8b"
-CLOUD = "bedrock/claude-sonnet"
+CLOUD = "bedrock/claude-sonnet-4-6"
 RETIRED = "ollama/llama2:7b"
 
 # (model, classification, expected_allowed, why)

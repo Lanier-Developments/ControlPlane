@@ -90,6 +90,7 @@ def generate_full(
     docs: list[Document],
     user: str | None = None,
     correlation_id: str | None = None,
+    requested_model: str | None = None,
 ):
     from .gateway import complete
     from .identity import groups_for
@@ -102,10 +103,16 @@ def generate_full(
         groups=groups_for(user) if user else [],
         principal=user,
         correlation_id=correlation_id,
+        requested_model=requested_model,
     )
 
 
-def ask(question: str, user: str | None = None, record_evidence: bool = True) -> dict:
+def ask(
+    question: str,
+    user: str | None = None,
+    record_evidence: bool = True,
+    requested_model: str | None = None,
+) -> dict:
     import uuid as _uuid
 
     from .evidence import record
@@ -150,7 +157,7 @@ def ask(question: str, user: str | None = None, record_evidence: bool = True) ->
     )
 
     try:
-        completion = generate_full(question, docs, user, correlation_id)
+        completion = generate_full(question, docs, user, correlation_id, requested_model)
     except PolicyDenied as denied:
         if record_evidence:
             record(correlation_id=correlation_id, principal=user, groups=groups,

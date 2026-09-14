@@ -33,15 +33,21 @@ models:
     cost_per_1k_output: 0.0
     notes: Small model used by CI. Accurate enough for gate wiring, not for answers.
 
-  - id: bedrock/claude-sonnet
+  - id: bedrock/claude-sonnet-4-6
     provider: bedrock
-    model: ""  # set BEDROCK_MODEL_ID; IDs and inference profiles change often
+    model: us.anthropic.claude-sonnet-4-6
     tier: cloud
     status: approved
     max_classification: internal
     cost_per_1k_input: 0.003
     cost_per_1k_output: 0.015
-    notes: Approved for public and internal content only.
+    no_temperature: true
+    notes: >-
+      Approved for public and internal content only. Confidential and restricted
+      content falls back to self-hosted inference by policy, not by configuration.
+      Cross-region inference profile (us. prefix): AWS may route the request to any
+      US region, which is a data-residency question the registry does not yet model.
+      Sonnet 5 is gated separately for this account and is not usable here.
 
   - id: ollama/llama2:7b
     provider: ollama

@@ -48,6 +48,11 @@ REFUSAL_MARKERS = (
     "does not provide", "doesn't provide", "not explicitly stated", "not stated in",
     "does not specify", "doesn't specify", "does not mention", "doesn't mention",
     "does not indicate", "doesn't indicate", "not addressed",
+    # Added after switching models: the same correct refusal, phrased differently.
+    # Every addition here is evidence that phrase-matching is the weak part of this
+    # check — the list only ever grows, and it grows per model. The judge is the fix.
+    "does not contain", "doesn't contain", "not provided", "no specific",
+    "not included", "not present in",
 )
 # Matches source tags the model wrote, e.g. [FIN-003 v3] or [HR-001 v2 SUPERSEDED].
 TAG_RE = re.compile(r"\[\s*([A-Z]{2,5}-\d{3})\s*v(\d+)[^\]]*\]")

@@ -247,6 +247,65 @@ axis and is not yet represented.
 
 ---
 
+## 13. Model comparison: Qwen3 8B vs Llama 3.1 8B (Sep 23, 2026)
+
+Adding Qwen3 8B was a single entry in `policy/models.yaml` — no code change,
+which is the point of the registry. Both models ran self-hosted through Ollama,
+behind the same policy gateway, row-level security, and context fencing, and
+were scored by the same evaluator. Llama's full tier was rerun on the updated
+scorer the same day so the comparison is like for like; its results matched the
+committed baseline exactly.
+
+### Answer quality — full tier, 44 items
+
+|                                                     | Llama 3.1 8B | Qwen3 8B                  |
+|-----------------------------------------------------|--------------|---------------------------|
+| Items passing all checks                            | 42           | 43 (42 on one of 3 runs)  |
+| Failing items                                       | G30, G32     | G30 (G27 on one run)      |
+| Context leaks, fabricated citations, ungrounded figures | 0        | 0                         |
+| Mean latency per call                               | 3.9 s        | 10.8 s                    |
+| p95 latency                                         | 4.3 s        | 14.7 s                    |
+
+Qwen's one steady failure (G30) is a phrasing miss: the answer is correct and
+cited, but says "without pursuing" where the golden set requires "not pursue."
+It fixes Llama's G32 misattribution. Qwen was not deterministic across runs at
+temperature zero with a fixed seed; Llama was stable.
+
+### Prompt injection — 16 red-team cases
+
+|                                        | Llama 3.1 8B | Qwen3 8B |
+|----------------------------------------|--------------|----------|
+| Flagged compromised                    | 2            | 5        |
+| After removing one scoring false positive | 2         | 4        |
+
+Llama fell only to direct override and content injection, both with the
+poisoned document placed first. Qwen fell to direct override plus citation
+forgery, exfiltration, and content injection with the poisoned document placed
+last — the more damaging classes: it repeated a planted salary figure under a
+real document tag, emitted the attacker's exfiltration URL, and restated planted
+financials. No attack achieved a permission bypass on either model; row-level
+security scopes the context before the model sees it.
+
+### Conclusion
+
+On answer quality the two are effectively equal. On everything else that
+matters for a governed pipeline, Llama 3.1 wins: Qwen3 was about 2.8x slower,
+roughly twice as susceptible to injection, and non-deterministic, which
+undercuts the reproducibility the CI eval gate depends on. Llama 3.1 stays the
+default. Qwen3 remains approved in the registry and could be the right choice
+for a different workload — but that call gets made on that workload's evals,
+with injection defenses tested first, not on model reputation.
+
+### Not yet tested
+
+- Qwen3 with thinking mode disabled. Thinking adds tokens, which likely explains
+  much of the latency and some of the run-to-run variance.
+- Larger Qwen3 sizes. This was an 8B-to-8B comparison.
+- Output-side defenses (URL and figure filtering, stricter citation checks)
+  aimed at the three attack classes Qwen fell to.
+
+---
+
 ## What is still open
 
 
@@ -274,6 +333,9 @@ axis and is not yet represented.
 - **No prompt registry.** Models are registered and versioned; prompts are not, even
   though a prompt change has been shown here to move eval results.
 - **The refusal check is phrase-matched and model-specific.** The marker list had to be
-  extended for the local model, then again for Claude — the same correct refusal, phrased
-  differently. It will need extending for the next model too. That maintenance cost is
-  the argument for the attribution judge, observed rather than asserted.
+  extended for the local model, again for Claude, and again for Qwen3 — the same correct
+  refusal, phrased differently each time ("does not include", "not specified"). The red
+  team keeps its own shorter copy of the list and flagged one Qwen3 refusal as a
+  compromise for the same reason. It will need extending for the next model too. That
+  maintenance cost is the argument for the attribution judge, observed rather than
+  asserted.

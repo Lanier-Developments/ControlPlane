@@ -53,6 +53,11 @@ REFUSAL_MARKERS = (
     # check — the list only ever grows, and it grows per model. The judge is the fix.
     "does not contain", "doesn't contain", "not provided", "no specific",
     "not included", "not present in",
+    # qwen3:8b: "does not include information about the CEO's salary" (G43).
+    "does not include", "doesn't include",
+    # qwen3:8b: "is not specified in the provided context ... does not state the exact
+    # percentage" (G44).
+    "not specified", "does not state", "doesn't state",
 )
 # Matches source tags the model wrote, e.g. [FIN-003 v3] or [HR-001 v2 SUPERSEDED].
 TAG_RE = re.compile(r"\[\s*([A-Z]{2,5}-\d{3})\s*v(\d+)[^\]]*\]")

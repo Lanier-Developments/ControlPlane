@@ -59,4 +59,14 @@ models:
     cost_per_1k_output: 0.0
     notes: Superseded. Present on purpose — a retired entry must be refused, not ignored.
 
+  - id: ollama/qwen3:8b
+    provider: ollama
+    model: qwen3:8b
+    tier: local
+    status: approved
+    max_classification: restricted
+    cost_per_1k_input: 0.0
+    cost_per_1k_output: 0.0
+    notes: Open-weight Qwen, self-hosted. No data leaves the network.
+
 default_model: ollama/llama3.1:8b

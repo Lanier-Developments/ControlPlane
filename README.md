@@ -104,21 +104,119 @@ turned out to mean, the three checks a green gate has to survive, and what is st
 | 6 | Evidence and observability | Hash-chained append-only evidence ledger, correlation ids, audit and tamper-detection tooling (**done**) |
 | 7 | Agentic retrieval and red team | 8-class prompt-injection suite with context fencing measured, LLM attribution judge, demo console (**partial** — LangGraph rewrite/grade loop not built) |
 
-## Quickstart
+## Installation
+
+### Prerequisites
+
+| | Why |
+|---|---|
+| **Docker** | Runs Postgres 16 with pgvector. Docker Desktop on macOS/Windows, Engine on Linux. |
+| **Python 3.11+** | 3.12 is what CI uses. |
+| **[Ollama](https://ollama.com)** | Embeddings and self-hosted inference. Needs ~6GB free for `llama3.1:8b`. |
+| **AWS account** | Optional. Only for the cloud-routing half of the demo; everything else runs without it. |
+
+### Setup
 
 ```bash
-cp .env.example .env              # point OLLAMA_BASE_URL at your Ollama
-make up                           # Postgres + pgvector (add: make up-local-llm)
-make pull-models                  # nomic-embed-text + llama3.1:8b
-python -m venv .venv && . .venv/bin/activate && pip install -e .
-make migrate                      # owned schema, RLS policies, rag_app role
-make ingest
-make rls-test                     # prove the database enforces
-make ask Q="How many PTO days do full-time employees get?" USER=sam
-make api                          # console at http://localhost:8000
+git clone https://github.com/Lanier-Developments/ControlPlane.git
+cd ControlPlane
+
+cp .env.example .env               # defaults work if Ollama is on this machine
+
+python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+pip install -e .
+
+make up                            # Postgres + pgvector
+make pull-models                   # nomic-embed-text + llama3.1:8b (a few GB)
+
+make migrate                       # owned schema, RLS policies, rag_app role
+make ingest                        # 70 documents -> ~148 chunks (a minute or two)
 ```
 
-Changing `db/schema.sql` after the volume exists needs `make reset-db && make migrate && make ingest`.
+### Verify
+
+Run these in order. Each answers a different question, and if one fails the later ones aren't meaningful.
+
+```bash
+make policy-test    # registry and routing rules — no database, no model, seconds
+make rls-test       # the database actually enforces entitlements
+make eval           # retrieval tier over 44 golden items
+make eval-full      # adds answer-quality checks (calls the model; several minutes)
+```
+
+`make eval` should report 0/44 context leaks and 0 missing sources. `make eval-full` carries two known failures documented in `evals/baseline.yaml` — that's expected, not a broken install.
+
+### Use it
+
+```bash
+make api                                          # console at http://localhost:8000
+make ask Q="How many PTO days do I get?" USER=sam # or the CLI
+make verify                                       # recompute the evidence chain
+make usage                                        # spend and policy decisions, 24h
+```
+
+Personas are `sam`, `dana`, `priya`, `riley` and `marcus` — each with different entitlements, listed in `evals/personas.yaml`.
+
+### Optional: cloud routing
+
+The demo is more interesting with a second provider, because that's what makes the routing policy visible. Any Bedrock-accessible Claude model works.
+
+1. Create an IAM user with `bedrock:InvokeModel`, then `aws configure`.
+2. First-time Anthropic use on Bedrock requires a use-case form — open the model in the Bedrock console's model catalog and submit it.
+3. Confirm which models your account can actually call:
+
+```bash
+aws bedrock-runtime converse --region us-east-1 \
+  --model-id us.anthropic.claude-sonnet-4-6 \
+  --messages '[{"role":"user","content":[{"text":"hi"}]}]' \
+  --query 'output.message.content[0].text' --output text
+```
+
+4. Put the working id in `policy/models.yaml`. That file is the only place it goes — no code change.
+
+```bash
+DEFAULT_MODEL=bedrock/claude-sonnet-4-6 make ask \
+  Q="What is the salary band for a Senior Engineer II?" USER=dana
+```
+
+That question retrieves confidential content, so the cloud model is denied by `registry-ceiling` and self-hosted inference answers instead. Both decisions appear in the response and in the ledger.
+
+### Troubleshooting
+
+**`Bind for 0.0.0.0:5432 failed: port is already allocated`** — something else holds Postgres's port: a local install, or another checkout of this repo (Compose namespaces containers by directory, so a second clone tries to start its own). Stop the other one, or change the host port in `docker-compose.yml` and update `DATABASE_URL` and `APP_DATABASE_URL` to match.
+
+**`ModuleNotFoundError: No module named 'provenance'`** — the editable install points at wherever it was installed from. Re-run `pip install -e .` from the repo root.
+
+**Ingest hangs or times out** — `OLLAMA_BASE_URL` is wrong. Ollama is the only network call in that path.
+
+**`model "nomic-embed-text" not found`** — run `make pull-models`, or pull it on whichever host `OLLAMA_BASE_URL` names.
+
+**`Retrieval role 'rag' bypasses RLS`** — `APP_DATABASE_URL` is pointing at the owner role. It must be `rag_app`. The app refuses to start rather than serve unenforced.
+
+**Schema changes don't take** — `db/init.sql` only runs on a fresh volume. Use `make reset-db && make migrate && make ingest`.
+
+**`relation "documents" does not exist`** — `make migrate` hasn't run.
+
+### Hosting it
+
+Demo mode adds the guardrails a publicly reachable instance needs: a model allowlist so an open URL can't spend money on a cloud provider, canned questions only, and a per-client rate limit.
+
+```bash
+# .env
+DEMO_MODE=true
+DEMO_ALLOWED_MODELS=ollama/llama3.1:8b
+```
+
+A Cloudflare Tunnel exposes it without opening a port:
+
+```bash
+cloudflared tunnel create controlplane
+cloudflared tunnel route dns controlplane controlplane.example.com
+cloudflared tunnel run controlplane
+```
+
+Keeping self-hosted inference on the host rather than renting a GPU isn't incidental — the whole point of the demo is that confidential content stays on hardware you control.
 
 ## Eval gate (Phase 2)
 

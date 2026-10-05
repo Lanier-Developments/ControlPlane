@@ -69,4 +69,15 @@ models:
     cost_per_1k_output: 0.0
     notes: Open-weight Qwen, self-hosted. No data leaves the network.
 
+  - id: vertex/gemini
+    provider: vertex
+    model: gemini-2.5-flash
+    tier: cloud
+    status: approved
+    max_classification: internal
+    cost_per_1k_input: 0.0003
+    cost_per_1k_output: 0.0025
+    notes: >-
+      Gemini on Gemini Enterprise Agent Platform (formerly Vertex AI), us-central1.  Same ceiling as Bedrock: public and internal only; confidential and restricted fall back to self-hosted inference by policy.
+
 default_model: ollama/llama3.1:8b

@@ -128,6 +128,17 @@ def _invoke(model: Model, prompt: str, system: str | None) -> str:
         client = ChatBedrockConverse(
             model=model_id, region_name=settings.aws_region, **kwargs
         )
+    elif model.provider == "vertex":
+        from langchain_google_genai import ChatGoogleGenerativeAI
+
+        kwargs = {} if model.no_temperature else {"temperature": 0}
+        client = ChatGoogleGenerativeAI(
+            model=model.model,
+            vertexai=True,
+            project=settings.gcp_project,
+            location=settings.gcp_location,
+            **kwargs,
+        )
     elif model.provider == "litellm":
         # LiteLLM as a drop-in proxy: same registry entry, different transport.
         from langchain_openai import ChatOpenAI

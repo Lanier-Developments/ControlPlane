@@ -13,11 +13,16 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://localhost:11434"
     embed_model: str = "nomic-embed-text"
 
-    llm_provider: str = "ollama"  # ollama | bedrock
+    llm_provider: str = "ollama"  # ollama | bedrock | vertex
     ollama_chat_model: str = "llama3.1:8b"
     llm_seed: int = 42
     bedrock_model_id: str = ""
     aws_region: str = "us-east-1"
+    # Gemini Enterprise Agent Platform (formerly Vertex AI). Auth comes from
+    # Application Default Credentials (gcloud auth application-default login, or
+    # GOOGLE_APPLICATION_CREDENTIALS for a service account), never from this file.
+    gcp_project: str = ""
+    gcp_location: str = "us-central1"
 
     chunk_size: int = 800
     chunk_overlap: int = 100

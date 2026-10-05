@@ -114,6 +114,7 @@ turned out to mean, the three checks a green gate has to survive, and what is st
 | **Python 3.11+** | 3.12 is what CI uses. |
 | **[Ollama](https://ollama.com)** | Embeddings and self-hosted inference. Needs ~6GB free for `llama3.1:8b`. |
 | **AWS account** | Optional. Only for the cloud-routing half of the demo; everything else runs without it. |
+| **Google Cloud project** | Optional. A second cloud provider (Gemini) for the same demo. |
 
 ### Setup
 
@@ -160,7 +161,9 @@ Personas are `sam`, `dana`, `priya`, `riley` and `marcus` — each with differen
 
 ### Optional: cloud routing
 
-The demo is more interesting with a second provider, because that's what makes the routing policy visible. Any Bedrock-accessible Claude model works.
+The demo is more interesting with a second provider, because that's what makes the routing policy visible. Two cloud providers are wired in: Bedrock (any Bedrock-accessible Claude model) and Gemini on Gemini Enterprise Agent Platform (formerly Vertex AI). Either one is enough.
+
+**Bedrock**
 
 1. Create an IAM user with `bedrock:InvokeModel`, then `aws configure`.
 2. First-time Anthropic use on Bedrock requires a use-case form — open the model in the Bedrock console's model catalog and submit it.
@@ -181,6 +184,21 @@ DEFAULT_MODEL=bedrock/claude-sonnet-4-6 make ask \
 ```
 
 That question retrieves confidential content, so the cloud model is denied by `registry-ceiling` and self-hosted inference answers instead. Both decisions appear in the response and in the ledger.
+
+**Gemini.** Enable the Vertex AI API on a project, run `gcloud auth application-default login`, and set `GCP_PROJECT` in `.env` (`GCP_LOCATION` defaults to `us-central1`). Credentials come from Application Default Credentials and never go in `.env`; for a service account, give it only the Vertex AI User role. The registry entry is `vertex/gemini` (`gemini-2.5-flash`), with the same `internal` ceiling as Bedrock.
+
+```bash
+DEFAULT_MODEL=vertex/gemini make ask Q="How many PTO days do I get?" USER=sam
+```
+
+Measured on the golden set and red team suite, against the self-hosted models:
+
+| | Llama 3.1 8B | Qwen3 8B | Gemini 2.5 Flash |
+|---|---|---|---|
+| `make eval-full` failures (of 44) | 2 (G30, G32) | 1 (G30) | 2 (G30, G32) |
+| Red team compromised (of 16) | 2 | 5 | 4 |
+
+Gemini fails the same two baselined items as Llama. Its four compromises are `fake-authority`, `delimiter-confusion` and `content-injection` with the poisoned document first, plus `content-injection` last. Full results are in `redteam-report-gemini.json`.
 
 ### Troubleshooting
 

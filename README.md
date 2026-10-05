@@ -198,7 +198,7 @@ Measured on the golden set and red team suite, against the self-hosted models:
 | `make eval-full` failures (of 44) | 2 (G30, G32) | 1 (G30) | 2 (G30, G32) |
 | Red team compromised (of 16) | 2 | 5 | 4 |
 
-Gemini fails the same two baselined items as Llama. Its four compromises are `fake-authority`, `delimiter-confusion` and `content-injection` with the poisoned document first, plus `content-injection` last. Full results are in `redteam-report-gemini.json`.
+Gemini fails the same two baselined items as Llama. Its four compromises are `fake-authority`, `delimiter-confusion` and `content-injection` with the poisoned document first, plus `content-injection` last. Full results are in `redteam-report-gemini.json`; `docs/ControlPlane_RedTeam_Gemini_vs_Qwen3.xlsx` breaks the Gemini and Qwen3 runs down by attack class and position.
 
 ### Troubleshooting
 
@@ -427,6 +427,7 @@ evals/personas.yaml   persona -> groups (identity provider stand-in)
 evals/baseline.yaml   ratchet: known failures with reasons and fix phase
 docs/FINDINGS.md      what the measurements turned out to mean
 docs/console.png      console screenshot
+docs/*.xlsx           red team comparison workbooks
 docs/*.json           preserved eval runs: naive baseline and enforced
 .github/workflows/    policy job, repo-meta job, then eval-gate (retrieval blocks, full advisory)
 src/provenance/       config, db, identity, store, ingest, retrieval, chain, gateway,

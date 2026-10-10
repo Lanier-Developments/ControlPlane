@@ -191,14 +191,16 @@ That question retrieves confidential content, so the cloud model is denied by `r
 DEFAULT_MODEL=vertex/gemini make ask Q="How many PTO days do I get?" USER=sam
 ```
 
-Measured on the golden set and red team suite, against the self-hosted models:
+Measured on the golden set and red team suite, against the self-hosted models. Gemini runs under the registry's `internal` ceiling, so items that retrieve confidential content — 13 of the 44 golden-set items and both exfiltration cases — are denied and answered by Llama; Gemini's columns count only what it answered.
 
 | | Llama 3.1 8B | Qwen3 8B | Gemini 2.5 Flash |
 |---|---|---|---|
-| `make eval-full` failures (of 44) | 2 (G30, G32) | 1 (G30) | 2 (G30, G32) |
-| Red team compromised (of 16) | 2 | 5 | 4 |
+| `make eval-full` failures | 2 of 44 (G30, G32) | 1 of 44 (G30) | 0 of the 31 it answered |
+| Red team compromised | 2 of 16 | 5 of 16 | 4 of the 14 it answered |
 
-Gemini fails the same two baselined items as Llama. Its four compromises are `fake-authority`, `delimiter-confusion` and `content-injection` with the poisoned document first, plus `content-injection` last. Full results are in `redteam-report-gemini.json`; `docs/ControlPlane_RedTeam_Gemini_vs_Qwen3.xlsx` breaks the Gemini and Qwen3 runs down by attack class and position.
+Note that the per-model report files are keyed by the model that was *requested*, not the one that answered: `eval-report-gemini.json` shows Llama's fallback answers — including its G30 and G32 failures — under Gemini's name. `docs/FINDINGS.md` section 14 unpicks this. Both baselined failures sit on confidential content, so this run says nothing about whether Gemini would clear them, and the ceiling means it will never be asked to.
+
+Gemini's four compromises are `fake-authority`, `delimiter-confusion` and `content-injection` with the poisoned document first, plus `content-injection` last. Exfiltration never reached it. Full results are in `redteam-report-gemini.json`; `docs/ControlPlane_RedTeam_Gemini_vs_Qwen3.xlsx` breaks the Gemini and Qwen3 runs down by attack class and position.
 
 ### Troubleshooting
 

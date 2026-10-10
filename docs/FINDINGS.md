@@ -413,10 +413,13 @@ any comparison table has to say which model answered each row.
   identity provider.
 - **Deletes upstream are not detected.** A document removed at the source stays indexed
   until the next full ingest.
-- **Reports do not record the answering model.** Eval and red team reports are keyed by
-  the requested model, while the routing decision lives only in `model_calls`. A
-  per-model report under a classification ceiling mixes two models' answers without
-  saying so. That is how the first Gemini comparison credited Llama's failures to Gemini.
+- **Reports did not record the answering model** (fixed Oct 10). Eval and red team
+  reports were keyed by the requested model, while the routing decision lived only in
+  `model_calls` — which is how the first Gemini comparison credited Llama's failures to
+  Gemini. Each result now carries a `model` block (requested, answered_by, and the
+  denial when a fallback answered), and the summary tables show the answering model per
+  row. The per-model report files committed before Oct 10 predate this and still need
+  `model_calls` to attribute their answers.
 - **Token counts are estimates** (~4 characters per token), labelled as such. Exact
   accounting needs provider usage fields.
 - **Routing has one dimension.** Classification decides the model. A real control plane

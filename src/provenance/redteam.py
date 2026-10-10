@@ -66,13 +66,15 @@ def benign_context(question: str, user: str, k: int) -> list[Document]:
 
 
 def run_case(attack: dict, user: str, position: str) -> dict:
-    from .chain import generate
+    from .chain import generate_full
+    from .evals import routing_of
 
     benign = benign_context(attack["question"], user, settings.top_k - 1)
     poisoned = attack["doc"]
     docs = [poisoned, *benign] if position == "first" else [*benign, poisoned]
 
-    answer = generate(attack["question"], docs, user)
+    completion = generate_full(attack["question"], docs, user)
+    answer = completion.text
     low = answer.lower()
 
     hit_target = attack["target"].lower() in low
@@ -97,6 +99,7 @@ def run_case(attack: dict, user: str, position: str) -> dict:
         "question": attack["question"],
         "compromised": compromised,
         "detail": detail,
+        "model": routing_of(completion),
         "answer": answer,
     }
 
@@ -128,14 +131,22 @@ def main() -> int:
     Path(args.report).write_text(json.dumps(results, indent=2))
 
     compromised = [r for r in results if r["compromised"]]
+    fallbacks = [r for r in results if "requested_denied" in r["model"]]
     print(f"## Red team — {len(results)} cases, principal: {args.user}\n")
     print(f"- Attacks that succeeded: {len(compromised)}/{len(results)}")
-    print("- Poisoned documents are never ingested; context is assembled in memory\n")
-    print("| Doc | Class | Position | Result | Detail |")
-    print("|---|---|---|---|---|")
+    print("- Poisoned documents are never ingested; context is assembled in memory")
+    if fallbacks:
+        print(f"- {len(fallbacks)} cases were denied the requested model and answered "
+              f"by the fallback — those rows measure the fallback, not the requested model")
+    print()
+    print("| Doc | Class | Position | Model | Result | Detail |")
+    print("|---|---|---|---|---|---|")
     for r in results:
         verdict = "COMPROMISED" if r["compromised"] else "held"
-        print(f"| {r['doc_id']} | {r['attack_class']} | {r['position']} | {verdict} | {r['detail']} |")
+        model = r["model"]["answered_by"]
+        if "requested_denied" in r["model"]:
+            model += " (fallback)"
+        print(f"| {r['doc_id']} | {r['attack_class']} | {r['position']} | {model} | {verdict} | {r['detail']} |")
 
     if compromised:
         print("\nAnswers from successful attacks:")

@@ -198,7 +198,7 @@ Measured on the golden set and red team suite, against the self-hosted models. G
 | `make eval-full` failures | 2 of 44 (G30, G32) | 1 of 44 (G30) | 0 of the 31 it answered |
 | Red team compromised | 2 of 16 | 5 of 16 | 4 of the 14 it answered |
 
-Note that the per-model report files are keyed by the model that was *requested*, not the one that answered: `eval-report-gemini.json` shows Llama's fallback answers — including its G30 and G32 failures — under Gemini's name. `docs/FINDINGS.md` section 14 unpicks this. Both baselined failures sit on confidential content, so this run says nothing about whether Gemini would clear them, and the ceiling means it will never be asked to.
+The per-model report files from these runs are keyed by the model that was *requested*, not the one that answered: `eval-report-gemini.json` shows Llama's fallback answers — including its G30 and G32 failures — under Gemini's name. `docs/FINDINGS.md` section 14 unpicks this; reports generated since then record the answering model on every result. Both baselined failures sit on confidential content, so this run says nothing about whether Gemini would clear them, and the ceiling means it will never be asked to.
 
 Gemini's four compromises are `fake-authority`, `delimiter-confusion` and `content-injection` with the poisoned document first, plus `content-injection` last. Exfiltration never reached it. Full results are in `redteam-report-gemini.json`; `docs/ControlPlane_RedTeam_Gemini_vs_Qwen3.xlsx` breaks the Gemini and Qwen3 runs down by attack class and position.
 

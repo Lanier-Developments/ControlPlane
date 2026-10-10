@@ -106,8 +106,28 @@ def tags_in(answer: str) -> list[str]:
     return [f"{doc_id} v{version}" for doc_id, version in TAG_RE.findall(answer)]
 
 
+def routing_of(completion) -> dict:
+    """Who was asked and who answered, from the gateway's own decisions.
+
+    Reports are run per requested model, but under a classification ceiling the
+    fallback answers the sensitive items. A report keyed only by the requested model
+    attributes those answers to a model that never saw them (FINDINGS section 14),
+    so every item carries the answering model.
+    """
+    requested = completion.decisions[0] if completion.decisions else None
+    routing = {
+        "requested": requested.model.id if requested and requested.model else None,
+        "answered_by": completion.model_id,
+    }
+    if requested and not requested.allowed:
+        routing["requested_denied"] = {
+            "rule_id": requested.rule_id, "reason": requested.reason,
+        }
+    return routing
+
+
 def score_item(item: dict, groups: list[str], tier: str, judge: bool = False) -> dict:
-    from .chain import generate, retrieve
+    from .chain import generate_full, retrieve
 
     docs = retrieve(item["question"], user=item["persona"])
     retrieved: dict[str, dict] = {}
@@ -135,8 +155,11 @@ def score_item(item: dict, groups: list[str], tier: str, judge: bool = False) ->
         details["superseded_in_context"] = superseded  # informational
 
     answer = None
+    routing = None
     if tier == "full":
-        answer = generate(item["question"], docs, item["persona"])
+        completion = generate_full(item["question"], docs, item["persona"])
+        answer = completion.text
+        routing = routing_of(completion)
         low = answer.lower()
         absent = [s for s in item.get("must_include", []) if s.lower() not in low]
         if absent:
@@ -189,6 +212,7 @@ def score_item(item: dict, groups: list[str], tier: str, judge: bool = False) ->
         "retrieved": list(retrieved),
         "failed": failed,
         "details": details,
+        "model": routing,
         "answer": answer,
     }
 
@@ -244,6 +268,18 @@ def summarize(results, regressions, stale, baseline, tier) -> str:
         f"- Missing expected sources: {expected_total}",
     ]
     if tier == "full":
+        from collections import Counter
+
+        by_model = Counter(r["model"]["answered_by"] for r in results if r.get("model"))
+        fallbacks = sum(
+            1 for r in results if r.get("model") and "requested_denied" in r["model"]
+        )
+        answered = ", ".join(f"{m} {c}" for m, c in by_model.most_common())
+        lines.append(
+            f"- Answered by: {answered}"
+            + (f" — the requested model was denied on {fallbacks} of {n}; "
+               f"the fallback answered those" if fallbacks else "")
+        )
         lines.append(f"- Fabricated citations: {fabricated}/{n} items cited a source never retrieved")
         ungrounded = sum("ungrounded_value" in r["failed"] for r in results)
         lines.append(f"- Ungrounded figures: {ungrounded}/{n} items stated a figure not in their context")
@@ -259,8 +295,8 @@ def summarize(results, regressions, stale, baseline, tier) -> str:
         f"- Regressions: {len(regressions)}",
         f"- Stale baseline entries: {len(stale)}",
         "",
-        "| Item | Persona | Category | Failed checks | Status |",
-        "|---|---|---|---|---|",
+        "| Item | Persona | Category | Model | Failed checks | Status |",
+        "|---|---|---|---|---|---|",
     ]
     reg_ids = {i for i, _ in regressions}
     for r in results:
@@ -274,7 +310,12 @@ def summarize(results, regressions, stale, baseline, tier) -> str:
             status = "advisory"
         else:
             status = "pass"
-        lines.append(f"| {r['id']} | {r['persona']} | {r['category']} | {', '.join(r['failed']) or '-'} | {status} |")
+        model = "-"
+        if r.get("model"):
+            model = r["model"]["answered_by"]
+            if "requested_denied" in r["model"]:
+                model += " (fallback)"
+        lines.append(f"| {r['id']} | {r['persona']} | {r['category']} | {model} | {', '.join(r['failed']) or '-'} | {status} |")
     if stale:
         lines += ["", "Baseline entries that now pass (run `make baseline` and commit):"]
         lines += [f"- {i}: {', '.join(c)}" for i, c in stale]

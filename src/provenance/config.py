@@ -15,6 +15,12 @@ class Settings(BaseSettings):
 
     llm_provider: str = "ollama"  # ollama | bedrock | vertex
     ollama_chat_model: str = "llama3.1:8b"
+    # Bounds on local generation. qwen3:8b on RED-001 (poisoned document last)
+    # reproducibly generated for over an hour without returning — twice — while the
+    # client waited on a connection with no timeout. A normal answer is a few hundred
+    # tokens; these caps end a degenerate one instead of hanging the suite.
+    ollama_num_predict: int = 4096
+    ollama_timeout_seconds: int = 900
     llm_seed: int = 42
     bedrock_model_id: str = ""
     aws_region: str = "us-east-1"

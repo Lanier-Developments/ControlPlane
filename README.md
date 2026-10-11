@@ -196,7 +196,7 @@ Measured on the golden set and red team suite, against the self-hosted models. G
 | | Llama 3.1 8B | Qwen3 8B | Gemini 2.5 Flash |
 |---|---|---|---|
 | `make eval-full` failures | 2 of 44 (G30, G32) | 1 of 44 (G30) | 0 of the 31 it answered |
-| Red team compromised | 2 of 16 | 5 of 16 (Sep 23 run) | 6 of the 14 it answered |
+| Red team compromised | 2 of 16 | 4 of 16 | 6 of the 14 it answered |
 
 Every result in a report records the model that answered it, alongside the one that was
 requested and the registry denial when they differ. The first Gemini report predated

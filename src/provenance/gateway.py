@@ -113,6 +113,8 @@ def _invoke(model: Model, prompt: str, system: str | None) -> str:
             base_url=settings.ollama_base_url,
             temperature=0,
             seed=settings.llm_seed,
+            num_predict=settings.ollama_num_predict,
+            client_kwargs={"timeout": settings.ollama_timeout_seconds},
         )
     elif model.provider == "bedrock":
         from langchain_aws import ChatBedrockConverse

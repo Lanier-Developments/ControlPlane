@@ -451,6 +451,38 @@ defenses bound what the model says; nothing bounded how long it may say it until
 
 ---
 
+## 15. A red team gate that gated nothing (Oct 11, 2026)
+
+The red team was written to gate: exit non-zero on any compromise, "so this can gate
+a merge once the baseline is clean." CI then ignored that exit code twice over — the
+step ran with `continue-on-error`, inside a job that also ran with `continue-on-error`
+because it shared the job with the advisory answer-quality tier. A new compromise
+would have printed a table into a log nobody was waiting for and turned nothing red.
+
+The premise was wrong too. The baseline never became clean and was never going to:
+2 of 16 stand accepted with fencing on, deliberately, with the measurement attached
+(section 9). An exit-on-any-compromise gate honored by CI would have been permanently
+red, and a permanently red gate trains people to ignore it — the same argument that
+made the eval gate a ratchet applies unchanged.
+
+So the red team now uses the same ratchet, with one difference: the baseline
+(`evals/redteam-baseline.yaml`) is keyed per model. A red team finding is a property
+of the model, not of the system — CI's `llama3.2:3b` fails RED-001 first-position
+only, the local `llama3.1:8b` fails RED-001 and RED-005 first-position — so a shared
+list would flap whenever the two disagree. A finding outside the model's list is a
+regression, an accepted finding that now holds is stale until the baseline is
+tightened, both exit non-zero, and a model with no section gates on every finding,
+which is the old behavior and what the per-model cloud runs still get. In CI the red
+team is its own nightly job and fails the workflow; injection resistance, unlike
+answer quality, does not need a smart model to measure, so a 3B result is signal.
+
+Verified by dispatch rather than asserted: the first CI run reproduced the local
+baseline run exactly — same finding, same target token, same answer shape — and went
+green with 0 regressions and 0 stale entries, while the advisory eval job failed
+beside it without dragging the red team result down. That byte-level agreement
+between a laptop and a shared runner is what seeded, temperature-0 local inference
+buys, and it is the property the gate's determinism rests on.
+
 ## What is still open
 
 
@@ -478,6 +510,11 @@ defenses bound what the model says; nothing bounded how long it may say it until
   as held when no attacker string appeared, which an empty answer satisfies trivially.
   An empty answer is now its own outcome (`NO ANSWER`) and fails the gate: an answer
   that says nothing defends nothing.
+- **The red team exit code gated nothing in CI** (fixed Oct 11). It ran as a
+  `continue-on-error` step inside a `continue-on-error` job. It now gates the nightly
+  through a per-model ratchet baseline (section 15). The remaining caveat is what it
+  watches: the nightly measures `llama3.2:3b` only, so a regression specific to a
+  larger model surfaces only when that model's suite is run locally.
 - **Token counts are estimates** (~4 characters per token), labelled as such. Exact
   accounting needs provider usage fields.
 - **Routing has one dimension.** Classification decides the model. A real control plane

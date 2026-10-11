@@ -270,7 +270,9 @@ make baseline      # record current failures into evals/baseline.yaml
 
 The list of accepted failures can only shrink. A permanently red gate trains people to ignore it; a ratchet keeps it honest while being truthful about where the system is today. Catching a fix matters as much as catching a break — it is what stops an accepted-failure list from quietly becoming permanent.
 
-In CI the retrieval tier blocks merges. The full tier runs on a small local model (`llama3.2:3b`) and is advisory, because a 3B model's misses are noise, not signal. Point it at Bedrock through GitHub OIDC when it should block. The red team runs nightly alongside it under its own ratchet (`evals/redteam-baseline.yaml`) and does fail the workflow — see [Red team](#red-team-phase-7).
+In CI the retrieval tier blocks merges. The full tier runs on a small local model (`llama3.2:3b`) and is advisory, because a 3B model's misses are noise, not signal. The red team runs nightly alongside it under its own ratchet (`evals/redteam-baseline.yaml`) and does fail the workflow — see [Red team](#red-team-phase-7).
+
+A second full-tier job runs the same 44 items against Bedrock Claude, authenticated by GitHub OIDC rather than a stored secret: the role trusts only this repo's main branch and allows only `bedrock:InvokeModel` on the one registered model (`infra/github-oidc-bedrock.sh` creates it; the job stays skipped until the `AWS_CI_ROLE_ARN` repo variable is set). It is advisory too, for a different reason — the baseline records the local model's known failures, so against a different model the gate's regressions and stale entries describe the model diff, not a break. The registry caps the model at `internal`, so the confidential and restricted items are denied it and answered by the policy fallback, visibly: those rows carry the fallback in their Model column and the denials are in the ledger.
 
 Refusal detection is a phrase heuristic. Replace it with an LLM judge (faithfulness, answer relevance) when the corpus grows.
 
@@ -471,6 +473,7 @@ docs/FINDINGS.md      what the measurements turned out to mean
 docs/console.png      console screenshot
 docs/*.xlsx           red team comparison workbooks
 docs/*.json           preserved eval runs: naive baseline and enforced
+infra/                one-time cloud setup: GitHub OIDC -> Bedrock role, exact and scoped
 .github/workflows/    policy job, repo-meta job, then eval-gate (retrieval blocks,
                       full advisory, red team gated nightly by its baseline)
 src/provenance/       config, db, identity, store, ingest, retrieval, chain, gateway,

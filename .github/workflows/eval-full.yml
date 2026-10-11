@@ -210,56 +210,123 @@ jobs:
           name: redteam-report
           path: redteam-report.json
 
-# ---------------------------------------------------------------------------
-# Bedrock via GitHub OIDC — the intended replacement for local inference here.
-#
-# Why: 44 sequential generations on a shared CPU runner take 25-40 minutes. Bedrock
-# turns that into minutes, and running the same 44 items against Claude and against
-# llama3.1:8b gives a model-to-model comparison on a fixed scoring set, which is a
-# more interesting result than either run alone.
-#
-# Setup, once AWS access is available:
-#
-# 1. Create an IAM OIDC identity provider for token.actions.githubusercontent.com
-#    (thumbprint is managed by AWS now; the console offers it).
-#
-# 2. Create a role whose trust policy scopes to this repo, and to a branch or
-#    environment rather than to the whole repo:
-#
-#      "Condition": {
-#        "StringEquals": {
-#          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
-#        },
-#        "StringLike": {
-#          "token.actions.githubusercontent.com:sub":
-#            "repo:Lanier-Developments/ControlPlane:ref:refs/heads/main"
-#        }
-#      }
-#
-#    A trust policy that omits the `sub` condition can be assumed by any repo on
-#    GitHub. That is the one mistake worth being careful about here.
-#
-# 3. Attach a policy granting only bedrock:InvokeModel on the specific model or
-#    inference profile ARN. No wildcard.
-#
-# 4. Add to this job:
-#
-#      permissions:
-#        id-token: write
-#        contents: read
-#
-#      - uses: aws-actions/configure-aws-credentials@v4
-#        with:
-#          role-to-assume: arn:aws:iam::<account>:role/<role-name>
-#          aws-region: us-east-1
-#
-# 5. Set the registry model id in policy/models.yaml (bedrock/claude-sonnet has an
-#    empty `model:` field waiting for it), then set DEFAULT_MODEL to that entry and
-#    drop the ollama service and the chat-model pull.
-#
-# Note the governance consequence, which is the interesting part: the corpus contains
-# confidential and restricted documents, and the registry caps bedrock/claude-sonnet
-# at `internal`. Those items will be REFUSED rather than answered by the cloud model —
-# `make usage` will show the denials and the rule that produced them. That is the
-# policy working, not a misconfiguration, and it is worth keeping in the report.
-# ---------------------------------------------------------------------------
+  # The full tier against Bedrock Claude, authenticated by GitHub OIDC — no stored
+  # secret; the role trusts this repo's main branch and allows bedrock:InvokeModel
+  # on the one registered model (infra/github-oidc-bedrock.sh creates it; the job
+  # stays skipped until the AWS_CI_ROLE_ARN repo variable is set).
+  #
+  # Advisory like the 3B job, for a different reason: evals/baseline.yaml records
+  # the local model's known failures, and a different model fails differently in
+  # both directions, so regressions and stale entries here describe the diff, not a
+  # break. It also is not reproducible the way the local runs are — the model
+  # rejects temperature (see policy/models.yaml).
+  #
+  # The governance consequence is the interesting part: the registry caps this
+  # model at `internal`, so the items that retrieve confidential or restricted
+  # content are denied it and answered by the policy fallback (ollama/llama3.1:8b,
+  # policy/routing.yaml) — which is why this job still pulls the local chat model.
+  # Those rows report the fallback in their Model column, and the ledger holds the
+  # denials. That is the policy working, not a misconfiguration.
+  full-bedrock:
+    runs-on: ubuntu-latest
+    if: ${{ vars.AWS_CI_ROLE_ARN != '' }}
+    continue-on-error: true
+
+    permissions:
+      id-token: write
+      contents: read
+
+    env:
+      DATABASE_URL: postgresql+psycopg://rag:rag@localhost:5432/rag
+      APP_DATABASE_URL: postgresql+psycopg://rag_app:rag_app@localhost:5432/rag
+      OLLAMA_BASE_URL: http://localhost:11434
+      EMBED_MODEL: nomic-embed-text
+      DEFAULT_MODEL: bedrock/claude-sonnet-4-6
+      # The policy fallback answers the ceiling-denied items, so it must be present.
+      FALLBACK_CHAT_MODEL: llama3.1:8b
+      AWS_REGION: us-east-1
+      TOP_K: "8"
+      MODELS_DIR: /home/runner/ollama-models
+
+    services:
+      db:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: rag
+          POSTGRES_PASSWORD: rag
+          POSTGRES_DB: rag
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U rag -d rag"
+          --health-interval 5s --health-retries 10
+      ollama:
+        image: ollama/ollama
+        ports: ["11434:11434"]
+        volumes:
+          - /home/runner/ollama-models:/root/.ollama
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_CI_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Restore model cache
+        id: models
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.MODELS_DIR }}
+          key: ollama-${{ env.EMBED_MODEL }}-${{ env.FALLBACK_CHAT_MODEL }}
+
+      - name: Pull models
+        run: |
+          pull() { curl -sf "$OLLAMA_BASE_URL/api/pull" -d "{\"model\": \"$1\", \"stream\": false}" > /dev/null; }
+          pull "$EMBED_MODEL"
+          pull "$FALLBACK_CHAT_MODEL"
+
+      - name: Save model cache
+        if: steps.models.outputs.cache-hit != 'true'
+        run: sudo chmod -R a+rX "$MODELS_DIR"
+
+      - if: steps.models.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.MODELS_DIR }}
+          key: ${{ steps.models.outputs.cache-primary-key }}
+
+      - name: Install
+        run: pip install -e .
+
+      - name: Apply schema
+        run: python -m provenance.ingest --migrate
+
+      - name: Ingest corpus
+        run: python -m provenance.ingest --reset
+
+      - name: Row-level security
+        run: python -m provenance.rls_test
+
+      - name: Score golden set (full tier, Bedrock)
+        run: python -m provenance.evals --tier full --report eval-report-bedrock.json
+
+      # The denials for ceiling-blocked items should be visible, not inferred.
+      - name: Model call log
+        if: always()
+        run: python -m provenance.usage --hours 24
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-report-bedrock
+          path: eval-report-bedrock.json
+
+# The former setup recipe for Bedrock via OIDC became the full-bedrock job above;
+# the IAM side lives in infra/github-oidc-bedrock.sh.

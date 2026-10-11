@@ -85,7 +85,7 @@ That failure produced two checks the gate now runs on every item: `citation_unsu
 
 **Caveats.** The naive baseline was measured on six documents; enforcement and retrieval quality were verified on seventy. Version demotion is not exclusion — a retired document still reaches context for the `public` persona, whose nine visible documents nearly fill a `TOP_K=8` window; the answers cite the active version regardless.
 
-One known failure remains, recorded in `evals/baseline.yaml`: the model attributed correct content from one document to another. Neither deterministic check catches misattribution — the tag is real and that document was retrieved — so it is tagged for the LLM judge in Phase 7 rather than worked around.
+One known failure remains, recorded in `evals/baseline.yaml`: the model attributed correct content from one document to another. Neither deterministic check catches misattribution — the tag is real and that document was retrieved — so it was tagged for the LLM judge in Phase 7 rather than worked around. That judge now catches it, advisorily (see [Attribution judge](#attribution-judge)); the deterministic gate still records the item as a known failure.
 
 Full runs: `docs/baseline-phase2.json` (naive) and `docs/phase4-enforced.json` (enforced).
 

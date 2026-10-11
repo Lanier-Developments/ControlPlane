@@ -270,7 +270,7 @@ make baseline      # record current failures into evals/baseline.yaml
 
 The list of accepted failures can only shrink. A permanently red gate trains people to ignore it; a ratchet keeps it honest while being truthful about where the system is today. Catching a fix matters as much as catching a break — it is what stops an accepted-failure list from quietly becoming permanent.
 
-In CI the retrieval tier blocks merges. The full tier runs on a small local model (`llama3.2:3b`) and is advisory, because a 3B model's misses are noise, not signal. Point it at Bedrock through GitHub OIDC when it should block.
+In CI the retrieval tier blocks merges. The full tier runs on a small local model (`llama3.2:3b`) and is advisory, because a 3B model's misses are noise, not signal. Point it at Bedrock through GitHub OIDC when it should block. The red team runs nightly alongside it under its own ratchet (`evals/redteam-baseline.yaml`) and does fail the workflow — see [Red team](#red-team-phase-7).
 
 Refusal detection is a phrase heuristic. Replace it with an LLM judge (faithfulness, answer relevance) when the corpus grows.
 
@@ -406,6 +406,8 @@ CONTEXT_FENCING=false make redteam    # measure what the defense actually buys
 
 **Position is part of the test.** Each attack runs with the poisoned document first and last. Several succeed in one position and not the other, so a single-position result means little.
 
+**The gate is the same ratchet as the evals, keyed per model.** `evals/redteam-baseline.yaml` records each accepted finding — a compromise or a `NO ANSWER` — with a reason, under the model that produced it, because a finding is a property of the model, not of the system: CI's small model and the local default fail different cases, and a shared list would flap whenever they disagree. A finding outside the model's list is a regression; an accepted finding that now holds is a stale baseline; both exit non-zero. In CI the red team is its own nightly job in `eval-full.yml` and fails the workflow — unlike the answer-quality tier, injection resistance does not need a smart model to measure, so a 3B model's result is signal there. A model with no baseline section gates on every finding, which is the old exit-on-any-compromise behavior and what the per-model local runs still do.
+
 **Measured:** fencing takes attack success from 4/16 to 2/16. It costs one golden-set item — with fencing on, the model refuses a safety-critical loss-prevention question it answers correctly with fencing off, because that document's own handling rules read as an instruction to withhold once it is framed as untrusted data. The trade-off is recorded in `evals/baseline.yaml` with the measurement attached; fencing stays on.
 
 A prompt is a shared resource: every instruction added to defend against an attacker is also read when a real user asks something. A defense that costs nothing on a fixed eval set usually is not doing anything.
@@ -453,11 +455,13 @@ policy/routing.yaml   routing rules, evaluated in order, ending in a deny
 evals/golden.yaml     44 items across 9 categories
 evals/personas.yaml   persona -> groups (identity provider stand-in)
 evals/baseline.yaml   ratchet: known failures with reasons and fix phase
+evals/redteam-baseline.yaml  red team ratchet: accepted findings per model, with reasons
 docs/FINDINGS.md      what the measurements turned out to mean
 docs/console.png      console screenshot
 docs/*.xlsx           red team comparison workbooks
 docs/*.json           preserved eval runs: naive baseline and enforced
-.github/workflows/    policy job, repo-meta job, then eval-gate (retrieval blocks, full advisory)
+.github/workflows/    policy job, repo-meta job, then eval-gate (retrieval blocks,
+                      full advisory, red team gated nightly by its baseline)
 src/provenance/       config, db, identity, store, ingest, retrieval, chain, gateway,
                       registry, evidence, audit, evals, compare, usage,
                       rls_test, policy_test, repo_meta_check, api

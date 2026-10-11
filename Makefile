@@ -23,6 +23,7 @@ trace:         ; python -m provenance.audit trace $(ID)
 tamper-demo:   ; python -m provenance.audit tamper-demo
 append-only:   ; python -m provenance.audit append-only
 redteam:       ; python -m provenance.redteam --user sam
+redteam-baseline: ; python -m provenance.redteam --user sam --write-baseline
 judge:         ; python -m provenance.evals --tier full --judge
 repo-meta-check: ; python -m provenance.repo_meta_check
 auth-test:     ; python -m pytest tests/test_auth.py -q

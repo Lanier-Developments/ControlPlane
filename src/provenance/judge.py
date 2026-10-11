@@ -82,20 +82,43 @@ def judge_claim(
     # the approver is the Vice President."). Judged alone, the conclusion looks
     # unsupported — the second false positive this check produced. The question asked
     # is still only about the one claim.
-    background = f"Full answer for context:\n{full_answer}\n\n" if full_answer else ""
-    prompt = (
-        f"Document [{source_key}]:\n{document_text}\n\n"
-        f"{background}"
-        f"Claim under review, citing [{source_key}]:\n{claim}\n\nJSON:"
+    #
+    # The document is fenced and the background sits outside the fence, because the
+    # unfenced layout made this check fail open on the exact case it was built for:
+    # when the answer was a single sentence, the claim appeared verbatim in the
+    # background, and the judge — two different models — counted that as the document
+    # stating the claim ("The document states the claim verbatim", said of a
+    # production-access claim against the performance-review document). The same
+    # phase 7 lesson as context fencing: auxiliary text that is not marked as
+    # non-evidence will be read as evidence.
+    background = (
+        f"Full answer, for resolving references only — it is not evidence:\n"
+        f"{full_answer}\n\n" if full_answer else ""
     )
+    prompt = (
+        f"{background}"
+        f"Document [{source_key}], the only evidence, between the markers:\n"
+        f"<<<DOCUMENT\n{document_text}\nDOCUMENT>>>\n\n"
+        f"Claim under review, citing [{source_key}]:\n{claim}\n\n"
+        f"Only text between <<<DOCUMENT and DOCUMENT>>> is evidence; "
+        f"the full answer is not.\nJSON:"
+    )
+    from .config import settings
+
     # The judge reads documents the caller was already entitled to, so it inherits the
     # same classification constraint: a confidential chunk still cannot reach a cloud
     # model just because a judge is the one asking.
+    #
+    # JUDGE_MODEL picks the grader; empty means the default model. Having the judged
+    # model grade itself was not the measured failure mode — on the unfenced prompt
+    # two different models passed the same misattribution — but a grader that did not
+    # write the answer is still the sounder arrangement, so it is configurable.
     completion = complete(
         prompt,
         system=JUDGE_SYSTEM,
         classifications=["restricted"],  # conservative: judge stays on local inference
         principal=principal,
+        requested_model=settings.judge_model or None,
     )
     text = completion.text.strip()
     match = re.search(r"\{.*\}", text, re.DOTALL)
@@ -125,11 +148,19 @@ def check_attribution(
 
     ungrounded, unknown, checked = [], [], 0
 
+    # The background exists to resolve references to earlier sentences. A one-sentence
+    # answer has no earlier sentence, and supplying it anyway restates the claim next
+    # to the evidence — the false-negative path the fencing closes. Belt and braces.
+    multi_sentence = len(SENTENCE_SPLIT.split(answer.strip())) > 1
+
     for claim, tags in claims_with_tags(answer):
         for tag in tags:
             if tag not in by_key:
                 continue  # citation_unsupported already covers a tag not in context
-            verdict = judge_claim(claim, tag, by_key[tag], principal, full_answer=answer)
+            verdict = judge_claim(
+                claim, tag, by_key[tag], principal,
+                full_answer=answer if multi_sentence else None,
+            )
             checked += 1
             if verdict["supported"] is None:
                 unknown.append({"claim": claim, "source": tag, "why": verdict["why"]})

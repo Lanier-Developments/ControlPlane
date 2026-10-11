@@ -17,6 +17,8 @@ known_failures:
     checks:
     - citation_missing
     reason: 'Correct content from ENG-007 attributed to HR-003. Misattribution is caught
-      by neither tag-existence nor figure-grounding checks — the tag is real and that
-      document was retrieved — so it needs a claim-to-source judge.'
+      by no deterministic check — the tag is real and that document was retrieved. The
+      claim-to-source judge flags it (ungrounded_claim, advisory) since its prompt was
+      fenced on Oct 11 (FINDINGS section 16); this entry stays because citation_missing
+      is the gated check and the answer still cites the wrong document.'
     fix_phase: 7

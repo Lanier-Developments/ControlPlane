@@ -274,6 +274,17 @@ In CI the retrieval tier blocks merges. The full tier runs on a small local mode
 
 Refusal detection is a phrase heuristic. Replace it with an LLM judge (faithfulness, answer relevance) when the corpus grows.
 
+### Attribution judge
+
+```bash
+make judge                            # full tier + claim-to-source judge (advisory)
+JUDGE_MODEL=ollama/qwen3:8b make judge  # grade with a model that didn't write the answer
+```
+
+The deterministic checks catch a tag naming a document never retrieved and a figure appearing nowhere in context. They cannot catch the most common lie: a real tag for a real retrieved document attached to a sentence that document does not support. The judge checks every tagged sentence against only the document it cites, through the gateway — same policy, same ledger, and a confidential chunk still cannot reach a cloud model just because a judge is asking.
+
+Its first measured run passed the exact misattribution it was built for, because its own prompt restated the claim as background and the judge read that as evidence — the same lesson as context fencing, applied to the judge itself. Fenced, it catches the misattribution with zero false positives on the 44-item set (FINDINGS §16). It stays advisory: an LLM grading an LLM is not ground truth, and a non-deterministic check that blocks merges will eventually block one for no reason.
+
 ## Retrieval (Phase 3)
 
 ```bash

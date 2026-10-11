@@ -483,15 +483,53 @@ beside it without dragging the red team result down. That byte-level agreement
 between a laptop and a shared runner is what seeded, temperature-0 local inference
 buys, and it is the property the gate's determinism rests on.
 
+## 16. The attribution judge failed open on the case it was built for (Oct 11, 2026)
+
+The claim-to-source judge existed before today — written for G32, where the model
+produced correct content from ENG-007 and tagged it [HR-003 v2], a lie no
+deterministic check can catch because the tag is real, the document was retrieved,
+and the claim holds no figure. What it had never been was measured. The first
+measured run (full tier, `--judge`, llama3.1:8b) checked 16 tagged claims and found
+nothing — including G32, which failed `citation_missing` as always while the judge
+declared the misattributed claim supported by the performance-review document.
+
+The rationale gave the bug away: "The document states the claim verbatim." It does
+not — but the judge's prompt did. To stop a conclusion sentence from being judged out
+of context (an earlier false positive), the prompt supplied the full answer as
+background; G32's answer is a single sentence, so the claim under review appeared
+twice in the prompt, once labelled background, and the judge read it as evidence. Two
+different models — the one that wrote the answer and qwen3:8b, which did not — passed
+it on identical reasoning, which rules out self-grading as the cause. The failure was
+prompt structure, and it failed open: a judge that finds nothing looks exactly like a
+system with nothing to find.
+
+The fix is the lesson section 9 already paid for, applied to the judge's own prompt:
+fence the evidence. The document now sits between explicit markers, the background is
+labelled non-evidence, the instruction is restated after the context, and a
+one-sentence answer gets no background at all, since there is no earlier sentence to
+resolve. Under the fenced prompt both models reject the G32 claim, and the full
+measured rerun comes back exact: 16 claims checked, one ungrounded — G32's, with the
+right reason — zero false positives, zero inconclusive. The conclusion-dependent
+claims that motivated the background still pass.
+
+`JUDGE_MODEL` now selects the grader (empty keeps the default model). Independence is
+the reason to set it — a grader that wrote the answer is the wrong arrangement on
+principle — but honestly: it was not the measured failure, and a different model was
+fooled by the same unfenced prompt. The judge stays advisory. One run of agreement on
+a 44-item set is evidence it works, not proof it always will, and a non-deterministic
+check that blocks merges will eventually block one for no reason.
+
 ## What is still open
 
 
 
-- **Misattribution is not caught by any deterministic check.** On one item the model
-  produced correct content from one document and tagged it with another. The tag is real
-  and the document was retrieved, and the value is not a figure — so neither new check
-  fires. Recorded as a known failure with a reason and a fix phase rather than worked
-  around. It needs a claim-to-source judge.
+- **Misattribution is not caught by any deterministic check** (judge catches it as of
+  Oct 11, advisory). On one item the model produced correct content from one document
+  and tagged it with another. The tag is real and the document was retrieved, and the
+  value is not a figure — so no deterministic check fires, and none can. The
+  claim-to-source judge now flags it (`ungrounded_claim`), after its prompt was fenced
+  (section 16). It remains advisory and outside the gate; `citation_missing` is still
+  the gated failure on that item.
 - **Version demotion is not exclusion.** A retired document still reaches context for the
   `public` persona, whose nine visible documents nearly fill a `TOP_K=8` window. Answers
   cite the active version regardless, but the mechanism is a ranking penalty, not a filter.

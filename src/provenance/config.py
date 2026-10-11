@@ -52,6 +52,11 @@ class Settings(BaseSettings):
     # Phase 7: wrap each context document in explicit data fences and restate the
     # instruction boundary after the context. Toggleable so its effect is measurable.
     context_fencing: bool = True
+    # Registry id of the model the attribution judge asks; empty = the default model,
+    # which means the judged model grades itself. Independence is the reason to set
+    # it, not accuracy — the measured G32 miss was the judge prompt, not the grader
+    # (docs/FINDINGS.md).
+    judge_model: str = ""
     litellm_base_url: str = "http://localhost:4000/v1"
     litellm_api_key: str = ""
 

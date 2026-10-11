@@ -49,6 +49,17 @@ class Settings(BaseSettings):
     litellm_base_url: str = "http://localhost:4000/v1"
     litellm_api_key: str = ""
 
+    # Authentication. "persona" trusts the request body (development, evals, demo
+    # console). "oidc" derives identity from a verified bearer JWT.
+    auth_mode: str = "persona"
+    oidc_issuer: str = ""
+    oidc_audience: str = ""
+    oidc_jwks_url: str = ""
+    oidc_algorithms: str = "RS256"   # comma-separated, asymmetric only
+    oidc_groups_claim: str = "groups"
+    oidc_admin_group: str = "cp-admin"
+    oidc_leeway_seconds: int = 30
+
     # Demo mode: for a publicly reachable instance.
     # Off by default so local development is unrestricted.
     demo_mode: bool = False

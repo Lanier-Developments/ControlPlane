@@ -8,10 +8,11 @@ a picture of it.
 """
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
+from .auth import Principal, current_principal, require_admin, validate_config
 from .chain import ask
 from .db import assert_rls_enforced
 from .identity import UnknownPrincipal
@@ -47,7 +48,8 @@ CANNED = {e["question"] for e in EXAMPLES}
 
 @app.on_event("startup")
 def verify_enforcement() -> None:
-    """Refuse to serve if the retrieval role is not actually constrained."""
+    """Refuse to serve if auth is misconfigured or the retrieval role is not constrained."""
+    validate_config()
     assert_rls_enforced()
 
 
@@ -69,8 +71,16 @@ def console() -> str:
 
 @app.get("/api/personas")
 def personas() -> dict:
-    """Personas and their entitlements. The stand-in for an identity provider."""
+    """Personas and their entitlements. The stand-in for an identity provider.
+
+    Persona mode only. With real authentication the table is not a thing callers
+    should be able to read, and it is not the source of identity anyway.
+    """
+    from .config import settings
     from .identity import _table
+
+    if settings.auth_mode != "persona":
+        raise HTTPException(status_code=404, detail="Not found.")
 
     return {"personas": [{"id": k, "groups": v} for k, v in _table().items()]}
 
@@ -104,7 +114,7 @@ def policy_endpoint() -> dict:
 
 
 @app.get("/api/evidence")
-def evidence_endpoint(limit: int = 10) -> dict:
+def evidence_endpoint(limit: int = 10, _admin: Principal | None = Depends(require_admin)) -> dict:
     """Recent ledger entries. Digests only — the ledger never stores answer text."""
     from .db import owner_conn
 
@@ -132,7 +142,7 @@ def evidence_endpoint(limit: int = 10) -> dict:
 
 
 @app.get("/api/verify")
-def verify_endpoint() -> dict:
+def verify_endpoint(_admin: Principal | None = Depends(require_admin)) -> dict:
     """Recompute the hash chain. The button that makes the ledger a control."""
     from .evidence import verify
 
@@ -140,7 +150,7 @@ def verify_endpoint() -> dict:
 
 
 @app.get("/api/usage")
-def usage_endpoint(hours: int = 24) -> dict:
+def usage_endpoint(hours: int = 24, _admin: Principal | None = Depends(require_admin)) -> dict:
     """Spend and policy decisions, grouped by the rule that produced them."""
     from .db import owner_conn
 
@@ -180,13 +190,32 @@ def demo_status() -> dict:
 
 
 @app.post("/ask")
-def ask_endpoint(req: AskRequest, request: Request) -> dict:
+def ask_endpoint(
+    req: AskRequest,
+    request: Request,
+    principal: Principal | None = Depends(current_principal),
+) -> dict:
     from .demo import check_model, check_question, check_rate
 
     check_rate(request)
     check_model(req.model or None)
     check_question(req.question, CANNED)
     try:
-        return ask(req.question, req.user, requested_model=req.model or None)
+        if principal is None:
+            # Persona mode (development): identity is whatever the body claims.
+            return ask(req.question, req.user, requested_model=req.model or None)
+        if req.user:
+            # Identity comes from the token. A body that tries to name one is either
+            # a stale client or a spoofing attempt; neither gets a quiet pass.
+            raise HTTPException(
+                status_code=400,
+                detail="Do not send 'user'. Identity is taken from the bearer token.",
+            )
+        return ask(
+            req.question,
+            principal.subject,
+            requested_model=req.model or None,
+            verified_groups=list(principal.groups),
+        )
     except UnknownPrincipal as exc:
         raise HTTPException(status_code=403, detail=f"Unknown principal: {exc}") from None

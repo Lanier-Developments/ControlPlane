@@ -75,9 +75,11 @@ def _text(content) -> str:
     return "".join(b.get("text", "") for b in content if isinstance(b, dict))
 
 
-def retrieve(question: str, user: str | None = None) -> list[Document]:
+def retrieve(
+    question: str, user: str | None = None, groups: list[str] | None = None
+) -> list[Document]:
     """Permission-scoped hybrid retrieval. Enforcement lives in the database."""
-    return search(question, user)
+    return search(question, user, groups)
 
 
 def generate(question: str, docs: list[Document], user: str | None = None) -> str:
@@ -91,6 +93,7 @@ def generate_full(
     user: str | None = None,
     correlation_id: str | None = None,
     requested_model: str | None = None,
+    verified_groups: list[str] | None = None,
 ):
     from .gateway import complete
     from .identity import groups_for
@@ -100,7 +103,8 @@ def generate_full(
         question,
         system=system,
         classifications=[d.metadata.get("classification", "internal") for d in docs],
-        groups=groups_for(user) if user else [],
+        groups=(verified_groups if verified_groups is not None
+                else (groups_for(user) if user else [])),
         principal=user,
         correlation_id=correlation_id,
         requested_model=requested_model,
@@ -112,6 +116,7 @@ def ask(
     user: str | None = None,
     record_evidence: bool = True,
     requested_model: str | None = None,
+    verified_groups: list[str] | None = None,
 ) -> dict:
     import uuid as _uuid
 
@@ -121,8 +126,10 @@ def ask(
     from .registry import CLASSIFICATION_ORDER, max_classification
 
     correlation_id = str(_uuid.uuid4())
-    groups = groups_for(user) if user else []
-    docs = retrieve(question, user)
+    # verified_groups comes from a validated token and wins over the persona table,
+    # including when it is empty: no groups means no rows, never a fallback.
+    groups = verified_groups if verified_groups is not None else (groups_for(user) if user else [])
+    docs = retrieve(question, user, groups)
 
     def chunk_refs(documents):
         return [
@@ -157,7 +164,9 @@ def ask(
     )
 
     try:
-        completion = generate_full(question, docs, user, correlation_id, requested_model)
+        completion = generate_full(
+            question, docs, user, correlation_id, requested_model, verified_groups=groups
+        )
     except PolicyDenied as denied:
         if record_evidence:
             record(correlation_id=correlation_id, principal=user, groups=groups,

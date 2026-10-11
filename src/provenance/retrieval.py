@@ -97,9 +97,15 @@ def apply_version_policy(fused: list[Fused]) -> list[Fused]:
     return sorted(fused, key=lambda f: f.score, reverse=True)
 
 
-def search(question: str, user: str | None = None) -> list[Document]:
-    """Retrieve top-k chunks the caller is entitled to. Enforcement is in the database."""
-    groups = groups_for(user)
+def search(
+    question: str, user: str | None = None, groups: list[str] | None = None
+) -> list[Document]:
+    """Retrieve top-k chunks the caller is entitled to. Enforcement is in the database.
+
+    `groups`, when given, is a verified entitlement list (from a token) and is used
+    as is, including when empty. Otherwise it is resolved from the persona table.
+    """
+    groups = groups if groups is not None else groups_for(user)
     vector = embeddings().embed_query(question)
     fetch_k = settings.fetch_k
 

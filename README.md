@@ -306,6 +306,22 @@ make eval                                      # leak count should be 0
 
 **Known gaps.** Group membership comes from `evals/personas.yaml`, a stand-in for an identity provider; Phase 5 replaces the source without touching retrieval. Deletes in the source system are not yet detected — a document removed upstream stays indexed until the next full ingest.
 
+## Authentication
+
+```
+make auth-test     # forged, expired, wrong-audience, alg-none and key-confusion tokens; no DB or model needed
+```
+
+Row-level security enforces the groups it is given. Authentication is what makes those groups trustworthy. With `AUTH_MODE=oidc` the caller's identity comes from a bearer JWT issued by an OIDC identity provider, verified in `src/provenance/auth.py`, and the request body can no longer name a user.
+
+- **Identity comes from the token, not the body.** `POST /ask` rejects a `user` field in `oidc` mode. The verified subject and group claims go to `app_conn()` as an explicit list, so the persona table is no longer in the path.
+- **Only asymmetric algorithms, pinned in config.** The token's `alg` header never picks the verifier, which closes `alg: none` and RS256-to-HS256 key confusion. `exp`, `iat`, `iss`, `aud` and `sub` are required.
+- **Fail closed.** Any verification failure is a 401 with a generic body (the reason goes to the log). A missing groups claim means no groups, which means no rows. An unknown `AUTH_MODE` or a symmetric algorithm in config stops the service at startup.
+- **The admin plane is separate.** `/api/evidence`, `/api/usage` and `/api/verify` read through the owner connection, which RLS does not constrain, so they require the `OIDC_ADMIN_GROUP` claim. `/api/personas` returns 404.
+- **`persona` mode remains the default** for local development, the eval gate and the demo console, and logs a warning at startup. Do not expose an instance in that mode.
+
+Not done: JWKS discovery from the issuer URL (the JWKS URL is explicit), token revocation beyond short expiry, and recording the token's `jti` in the evidence ledger.
+
 ## Governed model access (Phase 5)
 
 ```bash

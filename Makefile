@@ -25,3 +25,4 @@ append-only:   ; python -m provenance.audit append-only
 redteam:       ; python -m provenance.redteam --user sam
 judge:         ; python -m provenance.evals --tier full --judge
 repo-meta-check: ; python -m provenance.repo_meta_check
+auth-test:     ; python -m pytest tests/test_auth.py -q

@@ -389,6 +389,34 @@ default, because it is the only model that can answer the whole corpus. Comparin
 cloud model with a local one under this policy compares them on different questions, so
 any comparison table has to say which model answered each row.
 
+### Rerun under the new report format (Oct 10–11, 2026)
+
+Reports now record the answering model on every result (the fix the first write-up
+called for), and the suite was rerun to regenerate them. What the rerun measured:
+
+|                        | Llama 3.1 8B | Qwen3 8B | Gemini 2.5 Flash |
+|------------------------|--------------|----------|------------------|
+| Eval failures          | 2 of 44 (G30, G32) | 1 of 44 (G30) | 0 of the 31 it answered |
+| Red team compromised   | 2 of 16      | rerun pending | 6 of the 14 it answered |
+
+The Gemini eval report now states its own attribution: 31 items answered by
+`vertex/gemini` with no failures, 13 denied by `registry-ceiling` and answered by
+`ollama/llama3.1:8b` — G30 and G32 among them, carried as Llama's. Both RED-004
+exfiltration cases likewise show the fallback as the answering model.
+
+Two things moved since the earlier runs:
+
+- **Gemini's red team result worsened, 4 to 6 of 14.** The two first-position marker
+  echoes and both content-injection positions repeated, and `citation-forgery` (last) —
+  a damaging class Gemini held on Oct 5 — plus a second `delimiter-confusion` (last)
+  appeared. Same prompts, same fixtures: the cloud runs are not reproducible the way
+  the seeded local ones are, so a single red team run of a cloud model is a sample,
+  not a property.
+- **Qwen3 now passes the G30/G32 citation checks** it failed on Sep 23, leaving only
+  G30's `answer_missing_fact` — the same phrasing miss as before. Another instance of
+  non-determinism moving a published number; the ratchet gate flagged both as stale
+  baseline entries rather than silently accepting the improvement.
+
 ### Not yet tested
 
 - Exfiltration against Gemini. It needs a fixture whose context stays at `internal`.

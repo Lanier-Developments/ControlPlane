@@ -196,11 +196,21 @@ Measured on the golden set and red team suite, against the self-hosted models. G
 | | Llama 3.1 8B | Qwen3 8B | Gemini 2.5 Flash |
 |---|---|---|---|
 | `make eval-full` failures | 2 of 44 (G30, G32) | 1 of 44 (G30) | 0 of the 31 it answered |
-| Red team compromised | 2 of 16 | 5 of 16 | 4 of the 14 it answered |
+| Red team compromised | 2 of 16 | 5 of 16 (Sep 23 run) | 6 of the 14 it answered |
 
-The per-model report files from these runs are keyed by the model that was *requested*, not the one that answered: `eval-report-gemini.json` shows Llama's fallback answers — including its G30 and G32 failures — under Gemini's name. `docs/FINDINGS.md` section 14 unpicks this; reports generated since then record the answering model on every result. Both baselined failures sit on confidential content, so this run says nothing about whether Gemini would clear them, and the ceiling means it will never be asked to.
+Every result in a report records the model that answered it, alongside the one that was
+requested and the registry denial when they differ. The first Gemini report predated
+that and was keyed by the requested model only, which credited Llama's fallback answers
+— including its G30 and G32 failures — to Gemini; `docs/FINDINGS.md` section 14 unpicks
+this. Both baselined failures sit on confidential content, so a Gemini run says nothing
+about whether it would clear them, and the ceiling means it will never be asked to.
 
-Gemini's four compromises are `fake-authority`, `delimiter-confusion` and `content-injection` with the poisoned document first, plus `content-injection` last. Exfiltration never reached it. Full results are in `redteam-report-gemini.json`; `docs/ControlPlane_RedTeam_Gemini_vs_Qwen3.xlsx` breaks the Gemini and Qwen3 runs down by attack class and position.
+Gemini's compromises moved between runs — four on Oct 5, six on Oct 10, with
+`citation-forgery` and a second `delimiter-confusion` appearing only in the rerun — a
+reminder that the cloud runs are not reproducible the way the seeded local ones are.
+Exfiltration never reached it. Full results are in `redteam-report-gemini.json`;
+`docs/ControlPlane_RedTeam_Gemini_vs_Qwen3.xlsx` breaks the Oct 5 Gemini and Qwen3 runs
+down by attack class and position.
 
 ### Troubleshooting
 

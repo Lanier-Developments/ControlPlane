@@ -23,6 +23,13 @@ AWS="aws ${aws_profile:+--profile $aws_profile}"
 ACCOUNT_ID=927152787027
 ROLE_NAME=ControlPlane-eval-ci
 REPO=Lanier-Developments/ControlPlane
+# GitHub embeds immutable numeric IDs in the OIDC sub claim
+# (repo:OWNER@OWNER_ID/REPO@REPO_ID:ref:...), so the name-only form never
+# matches — CloudTrail showed the live claim on Oct 12, 2026. Both forms are
+# trusted in case GitHub's format differs per account or changes back.
+# IDs from: gh api repos/$REPO --jq '{owner: .owner.id, repo: .id}'
+OWNER_ID=296288988
+REPO_ID=1368171693
 PROVIDER_ARN="arn:aws:iam::${ACCOUNT_ID}:oidc-provider/token.actions.githubusercontent.com"
 
 # 1. The identity provider. AWS manages GitHub's thumbprints now; the value
@@ -48,7 +55,10 @@ TRUST=$(cat <<JSON
     "Action": "sts:AssumeRoleWithWebIdentity",
     "Condition": {
       "StringEquals": {"token.actions.githubusercontent.com:aud": "sts.amazonaws.com"},
-      "StringLike": {"token.actions.githubusercontent.com:sub": "repo:${REPO}:ref:refs/heads/main"}
+      "StringLike": {"token.actions.githubusercontent.com:sub": [
+        "repo:${REPO}:ref:refs/heads/main",
+        "repo:${REPO%/*}@${OWNER_ID}/${REPO#*/}@${REPO_ID}:ref:refs/heads/main"
+      ]}
     }
   }]
 }

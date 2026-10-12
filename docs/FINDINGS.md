@@ -590,9 +590,13 @@ the ratchet passed on the first scored run.
   that says nothing defends nothing.
 - **The red team exit code gated nothing in CI** (fixed Oct 11). It ran as a
   `continue-on-error` step inside a `continue-on-error` job. It now gates the nightly
-  through a per-model ratchet baseline (section 15). The remaining caveat is what it
-  watches: the nightly measures `llama3.2:3b` only, so a regression specific to a
-  larger model surfaces only when that model's suite is run locally.
+  through a per-model ratchet baseline (section 15). The caveat that it watched only
+  `llama3.2:3b` closed on Oct 12: a second gating job runs the suite against Bedrock
+  Sonnet nightly via the OIDC role (section 17). Measuring Sonnet surfaced two scorer
+  limits — a refusal vocabulary the marker list did not know (widened), and a model
+  that names the attack while refusing it, which puts the target substring in a held
+  answer; the latter is accepted as a `flaky` baseline entry, a new ratchet outcome
+  for findings that come and go under a model that rejects temperature.
 - **Token counts are estimates** (~4 characters per token), labelled as such. Exact
   accounting needs provider usage fields.
 - **Routing has one dimension.** Classification decides the model. A real control plane

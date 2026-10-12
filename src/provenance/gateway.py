@@ -103,11 +103,11 @@ def _log_call(**kw) -> None:
             INSERT INTO model_calls (call_id, correlation_id, principal, requested_model,
                                      resolved_model, classification, decision, reason,
                                      rule_id, cache_hit, prompt_tokens, completion_tokens,
-                                     tokens_exact, cost_usd, latency_ms)
+                                     tokens_exact, cost_usd, latency_ms, prompt_ref)
             VALUES (%(call_id)s, %(correlation_id)s, %(principal)s, %(requested_model)s,
                     %(resolved_model)s, %(classification)s, %(decision)s, %(reason)s,
                     %(rule_id)s, %(cache_hit)s, %(prompt_tokens)s, %(completion_tokens)s,
-                    %(tokens_exact)s, %(cost_usd)s, %(latency_ms)s)
+                    %(tokens_exact)s, %(cost_usd)s, %(latency_ms)s, %(prompt_ref)s)
             """,
             kw,
         )
@@ -216,6 +216,7 @@ def complete(
     principal: str | None = None,
     requested_model: str | None = None,
     correlation_id: str | None = None,
+    prompt_ref: str | None = None,
 ) -> Completion:
     """Run a model call under policy.
 
@@ -232,6 +233,8 @@ def complete(
     chosen = fallback if (fallback and fallback.allowed) else decision
 
     def log(model_id, cache_hit, pt, ct, cost, latency, dec, exact=None):
+        # prompt_ref is the registered prompt that shaped this call (id@version#sha8,
+        # prompts.py) — recorded on denials too, since the refusal knew its prompt.
         _log_call(
             call_id=str(uuid.uuid4()),
             correlation_id=correlation_id,
@@ -248,6 +251,7 @@ def complete(
             tokens_exact=exact,
             cost_usd=cost,
             latency_ms=latency,
+            prompt_ref=prompt_ref,
         )
 
     # Record the refusal before anything else runs. A denial with no record is

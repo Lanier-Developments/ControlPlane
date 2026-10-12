@@ -361,6 +361,8 @@ This is the direct lesson from a prior control-plane build where model selection
 
 **Policy is data too, and it fails closed.** Rules in `policy/routing.yaml` are evaluated in order, first match decides, and the last rule is a deny — so a policy file that fails to anticipate a case refuses rather than falling through to allow. The shape is deliberately OPA-compatible (a decision, a reason and a rule id on every answer), so moving the rules to Rego is a transport change, not a redesign.
 
+**Prompts are registered artifacts too.** The two prompts in the system — the answer prompt and the attribution judge's — live in `src/provenance/prompts.py` with a version each, and `policy/prompts.yaml` pins the sha256 of their text. `make policy-test` recomputes the hashes on every pull request, so editing a template without bumping its version and re-pinning fails the gate: a prompt change arrives with a version and its measurement, or not at all. Every gateway call records its prompt's ref (`answer@3#b1177631`) in `model_calls` — computed live from the text that ran, so code/pin drift would be visible in the ledger even before the gate catches it — which makes "which prompt produced this answer" answerable the way "which model" already is. FINDINGS §16 and §18 are the measured case: prompt changes move eval and red team results, differently per model, so a prompt change is a deployment.
+
 **The registry ceiling outranks the rule file.** A model's `max_classification` is checked before any rule runs. A permissive rule cannot grant a model access to data more sensitive than its own registry entry allows — the two have to agree, and the stricter one wins.
 
 **Classification comes from the retrieved context, and the most sensitive chunk governs.** One confidential chunk constrains the whole call, because a prompt is indivisible once it is sent. In practice that means a question Dana asks about salary bands cannot be answered by an external provider, while the same question shape about public content can.
@@ -472,7 +474,8 @@ corpus/seed/          70 documents across six departments, ~148 chunks
 db/schema.sql         owned schema, RLS policies, rag_app role, gateway and ledger tables
 db/init.sql           same content, runs once on a fresh volume
 policy/models.yaml    model registry: providers, tiers, ceilings, rates, status
-policy/routing.yaml   routing rules, evaluated in order, ending in a deny
+policy/routing.yaml   routing rules, evaluated in order, ending in a deny; budgets
+policy/prompts.yaml   prompt registry pins: version + sha256 per prompt, gated by policy-test
 evals/golden.yaml     44 items across 9 categories
 evals/personas.yaml   persona -> groups (identity provider stand-in)
 evals/baseline.yaml   ratchet: known failures with reasons and fix phase

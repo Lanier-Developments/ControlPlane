@@ -153,6 +153,20 @@ def main() -> int:
             failures += 1
             print(f"  FAIL  {model.id} has an unknown max_classification")
 
+    # Prompts are registered artifacts too: the text in prompts.py must match the
+    # version and hash pinned in policy/prompts.yaml, both directions. An edited
+    # template without a version bump is drift, and drift fails the gate — FINDINGS
+    # sections 16 and 18 are the measured case for this.
+    from . import prompts as prompt_registry
+    print("\nPrompt registry:")
+    problems = prompt_registry.verify()
+    for p in prompt_registry.PROMPTS.values():
+        pinned_ok = not any(msg.startswith(p.id) for msg in problems)
+        print(f"  {'PASS' if pinned_ok else 'FAIL'}  {p.ref}")
+    for msg in problems:
+        failures += 1
+        print(f"  FAIL  {msg}")
+
     print("\n" + ("All policy checks passed" if not failures else f"{failures} POLICY CHECK(S) FAILED"))
     return 1 if failures else 0
 

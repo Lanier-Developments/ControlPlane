@@ -117,11 +117,18 @@ CREATE TABLE IF NOT EXISTS model_calls (
     -- of the record: cost and budget enforcement are only as exact as this flag.
     tokens_exact     boolean,
     cost_usd         numeric(12, 6),
-    latency_ms       int
+    latency_ms       int,
+    -- registered prompt ref: id@version#sha8 (see ALTER below for the rationale)
+    prompt_ref       text
 );
 
 -- Existing databases predate the column; the migrate path re-applies this file.
 ALTER TABLE model_calls ADD COLUMN IF NOT EXISTS tokens_exact boolean;
+
+-- The registered prompt that shaped the call: id@version#sha8 (policy/prompts.yaml,
+-- src/provenance/prompts.py). "Which prompt produced this answer" is a governance
+-- question the same way "which model" is.
+ALTER TABLE model_calls ADD COLUMN IF NOT EXISTS prompt_ref text;
 
 CREATE INDEX IF NOT EXISTS model_calls_occurred_idx ON model_calls (occurred_at DESC);
 CREATE INDEX IF NOT EXISTS model_calls_correlation_idx ON model_calls (correlation_id);

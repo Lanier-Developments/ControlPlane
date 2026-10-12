@@ -677,12 +677,17 @@ deployments get versions and gates.
   principal is not the bypass). The meter was the estimated token count when this
   shipped; since later the same day it is the provider's own counts wherever they
   are reported (see the token-counts item below).
-- **No prompt registry.** Models are registered and versioned; prompts are not, even
-  though a prompt change has been shown here to move eval results — most sharply in
+- **No prompt registry** (fixed Oct 12). Models were registered and versioned;
+  prompts were not, even though a prompt change moves eval results — most sharply in
   section 18, where two wordings of the same fencing idea moved *different* failures
-  on the same model, and landing one clause safely took five measurement passes
-  across three models. A prompt change is a deployment; deployments get versions and
-  gates.
+  on the same model, and landing one clause safely took five measurement passes.
+  Prompts now live in `prompts.py` with a version, `policy/prompts.yaml` pins their
+  hashes, `policy_test` fails any edit that arrives without a version bump, and
+  every gateway call records its prompt ref (`answer@3#b1177631`) in the ledger —
+  computed live from the text that ran. What remains open inside it: the registry
+  covers the two prompts the system sends to models; retrieval parameters and the
+  fencing *mechanism* (as opposed to its words) are still configuration, versioned
+  only by git.
 - **The refusal check is phrase-matched and model-specific.** The marker list had to be
   extended for the local model, again for Claude, and again for Qwen3 — the same correct
   refusal, phrased differently each time ("does not include", "not specified"). The red

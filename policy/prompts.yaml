@@ -1,0 +1,29 @@
+# Prompt registry pins. The text lives in src/provenance/prompts.py, reviewed like
+# code; this file is what makes it a registry. Each entry pins a version to the
+# sha256 of the template text, and `make policy-test` recomputes the hashes on every
+# pull request — editing a template without bumping its version here fails the gate.
+# FINDINGS sections 16 and 18 are why: a prompt change moves measured results, so a
+# prompt change is a deployment, and deployments get versions and gates.
+#
+# To change a prompt: edit the text, bump `version` in code and here, re-pin the
+# hash (python -c "from provenance import prompts; ..."), and bring the measurement
+# — the eval and red team runs that priced the change — in the same commit.
+# The ledger records id@version#sha8 per call, computed from the text that ran.
+prompts:
+  - id: answer
+    version: 3
+    sha256: b11776313bd4b6cca1b850d5b08953d981fdd9ebd3d3dfd79dd5f399740cf748
+    notes: >-
+      v1 bare rules; v2 added context fencing — document markers, boundary restated
+      after the context (Phase 7, FINDINGS section 9: red team 4/16 -> 2/16, cost
+      G30); v3 added the provenance clause — a document quoting another document is
+      only its own claim (Oct 12 2026, FINDINGS section 18: Sonnet citation-forgery
+      3/16 -> 0/16, cost G13 on the 8B and RED-001:last on the 3B).
+  - id: judge
+    version: 2
+    sha256: de167207bf4e74b54c122e2bd71b31a2fddce61a95c8a75803bed88df862bb94
+    notes: >-
+      v1 supplied the full answer as unfenced background and failed open on the
+      misattribution it was built for (FINDINGS section 16); v2 fences the document
+      between markers, labels the background non-evidence, restates the instruction
+      after the context, and omits the background for single-sentence answers.

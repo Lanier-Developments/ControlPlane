@@ -2,6 +2,13 @@
 
 ACLs travel with the document into doc_acl at ingest time. That is what makes
 enforcement possible later: an ACL discovered at query time is already too late.
+
+Every ingest reconciles: a (doc_id, version) in the database but no longer on disk
+is deleted, cascading to its chunks and grants. A document removed at the source —
+for retention, for legal, or just removed — must stop being retrievable at the next
+ingest, not at the next --reset someone remembers to run. The evidence ledger keeps
+its digests of past answers that cited it; the ledger records history, the index
+serves the present.
 """
 import argparse
 import uuid
@@ -116,9 +123,27 @@ def main() -> None:
                     (chunk_id, m["doc_id"], m["version"], index, content, str(vector)),
                 )
             total += len(pieces)
+
+        # Reconcile against the disk: what the corpus no longer contains, the index
+        # must no longer serve. CASCADE takes the chunks and grants with it.
+        ids = [d.metadata["doc_id"] for d in docs]
+        versions = [d.metadata["version"] for d in docs]
+        removed = conn.execute(
+            """
+            DELETE FROM documents d
+            WHERE NOT EXISTS (
+                SELECT 1 FROM unnest(%s::text[], %s::int[]) AS keep(doc_id, version)
+                WHERE keep.doc_id = d.doc_id AND keep.version = d.version)
+            RETURNING d.doc_id, d.version
+            """,
+            (ids, versions),
+        ).fetchall()
         conn.commit()
 
     print(f"Ingested {len(docs)} documents as {total} chunks")
+    if removed:
+        gone = ", ".join(f"{doc_id} v{version}" for doc_id, version in sorted(removed))
+        print(f"Removed {len(removed)} no longer in the corpus: {gone}")
 
 
 if __name__ == "__main__":

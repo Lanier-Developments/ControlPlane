@@ -619,8 +619,16 @@ deployments get versions and gates.
   cite the active version regardless, but the mechanism is a ranking penalty, not a filter.
 - **Identity is a stand-in.** Group membership comes from a YAML file rather than an
   identity provider.
-- **Deletes upstream are not detected.** A document removed at the source stays indexed
-  until the next full ingest.
+- **Deletes upstream are not detected** (fixed Oct 12). A document removed at the
+  source stayed indexed — and retrievable, and citable — until someone ran a full
+  `--reset`. Every ingest now reconciles against the disk: a (doc_id, version) no
+  longer in the corpus is deleted, cascading to its chunks and grants, and the run
+  reports what it removed. Verified round-trip: removing a corpus file made its
+  document, chunks, ACL rows and retrieval hits disappear on the next ingest, and
+  restoring the file brought them back. The evidence ledger keeps its digests of
+  past answers that cited the deleted document — the ledger records history, the
+  index serves the present. What this still is not: change *detection*. The ingest
+  must run to notice; nothing watches the source for deletions in real time.
 - **Reports did not record the answering model** (fixed Oct 10). Eval and red team
   reports were keyed by the requested model, while the routing decision lived only in
   `model_calls` — which is how the first Gemini comparison credited Llama's failures to

@@ -329,7 +329,7 @@ make eval                                      # leak count should be 0
 
 **ACLs propagate at ingest.** Grants are rewritten on every ingest rather than added to, so a revoked group actually disappears. Chunks above the current count are deleted, so a shortened document leaves no orphans. A document with an empty `acl` is rejected: there is no implicit default.
 
-**Known gaps.** Group membership comes from `evals/personas.yaml`, a stand-in for an identity provider; Phase 5 replaces the source without touching retrieval. Deletes in the source system are not yet detected — a document removed upstream stays indexed until the next full ingest.
+**Known gaps.** Group membership comes from `evals/personas.yaml`, a stand-in for an identity provider; Phase 5 replaces the source without touching retrieval. Upstream deletes were one of these gaps until Oct 12: every ingest now reconciles against the disk, deleting any (doc_id, version) the corpus no longer contains — cascading to its chunks and grants — and reporting what it removed. A document deleted at the source stops being retrievable at the next ingest, not at the next `--reset` someone remembers to run; the evidence ledger keeps its digests of past answers that cited it, because the ledger records history while the index serves the present.
 
 ## Authentication
 

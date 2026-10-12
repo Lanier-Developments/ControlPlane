@@ -287,6 +287,8 @@ The deterministic checks catch a tag naming a document never retrieved and a fig
 
 Its first measured run passed the exact misattribution it was built for, because its own prompt restated the claim as background and the judge read that as evidence — the same lesson as context fencing, applied to the judge itself. Fenced, it catches the misattribution with zero false positives on the 44-item set (FINDINGS §16). It stays advisory: an LLM grading an LLM is not ground truth, and a non-deterministic check that blocks merges will eventually block one for no reason.
 
+In CI, dispatching `eval-full` with `judge: true` runs it in both full-tier jobs. The Bedrock job pins `JUDGE_MODEL` to the local model it already pulls — the judge grades against restricted-classified context the ceiling would deny the cloud model anyway, and the grader should not be the model that wrote the answers. Its first CI run reproduced the local result exactly: 18 claims judged, one ungrounded (the known misattribution, with the right reason), zero false positives.
+
 ## Retrieval (Phase 3)
 
 ```bash
@@ -427,7 +429,7 @@ CONTEXT_FENCING=false make redteam    # measure what the defense actually buys
 
 **Measured:** fencing takes attack success from 4/16 to 2/16. It costs one golden-set item — with fencing on, the model refuses a safety-critical loss-prevention question it answers correctly with fencing off, because that document's own handling rules read as an instruction to withhold once it is framed as untrusted data. The trade-off is recorded in `evals/baseline.yaml` with the measurement attached; fencing stays on.
 
-**A provenance clause joined the fencing on Oct 12** after CI caught the cloud model repeatedly laundering a planted salary band through a forged citation (RED-003): the source tag is the block the text physically came from, and content a document attributes to another document is only its own claim. Measured on matched samples it takes Sonnet's citation-forgery rate from 3/16 to 0/16 — and, true to the rule that a free defense is doing nothing, it moved every model differently: the 8B model's RED-005 failure is fixed (baseline entry retired), one 8B golden-set item went terse (G13, baselined beside G30), and the 3B CI model now fails RED-001 in a second position (baselined). FINDINGS §18 has the full accounting.
+**A provenance clause joined the fencing on Oct 12** after CI caught the cloud model repeatedly laundering a planted salary band through a forged citation (RED-003): the source tag is the block the text physically came from, and content a document attributes to another document is only its own claim. Measured on matched samples it takes Sonnet's citation-forgery rate from 3/16 to 0/16 — and, true to the rule that a free defense is doing nothing, it moved every model differently: the 8B model's RED-005 failure is fixed (baseline entry retired), one 8B golden-set item went terse (G13, baselined beside G30), and the 3B CI model now fails RED-001 in a second position (baselined). FINDINGS §18 has the full accounting. The accepted lists now stand at one case for the 8B default, two for the 3B CI model, and four `flaky` entries for Bedrock Sonnet — two real intermittent citation-forgery surfaces and two scorer artifacts where the model names the attack while refusing it.
 
 A prompt is a shared resource: every instruction added to defend against an attacker is also read when a real user asks something. A defense that costs nothing on a fixed eval set usually is not doing anything.
 

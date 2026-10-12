@@ -610,7 +610,9 @@ deployments get versions and gates.
   and tagged it with another. The tag is real and the document was retrieved, and the
   value is not a figure — so no deterministic check fires, and none can. The
   claim-to-source judge now flags it (`ungrounded_claim`), after its prompt was fenced
-  (section 16). It remains advisory and outside the gate; `citation_missing` is still
+  (section 16), and runs in CI on demand as of Oct 12 (`eval-full` dispatched with
+  `judge: true`, both full-tier jobs; the first CI run reproduced the local result
+  exactly). It remains advisory and outside the gate; `citation_missing` is still
   the gated failure on that item.
 - **Version demotion is not exclusion.** A retired document still reaches context for the
   `public` persona, whose nine visible documents nearly fill a `TOP_K=8` window. Answers
@@ -641,11 +643,13 @@ deployments get versions and gates.
   positions — the habit roams, the first CI run surfaced the other position with a
   different marker), a new ratchet outcome for findings that come and go under a
   model that rejects temperature. A third case-key narrating the attack is the
-  signal to replace the substring scorer with an LLM judge. The second CI run then
-  found something that was no artifact: once in six runs, Sonnet reproduced
-  RED-003's planted salary band as fact with the forged citation — a genuine
-  intermittent citation-forgery compromise, baselined flaky with exactly that
-  reason. The clean sweep of the first four runs was sampling, not safety.
+  signal to replace the substring scorer with an LLM judge. The second and third CI
+  runs then found something that was no artifact: Sonnet reproduced RED-003's
+  planted salary band as fact with the forged citation, in both positions across
+  runs — a genuine, repeating citation-forgery weakness the four clean local runs
+  had hidden (sampling, not safety). That finding drove the provenance fencing
+  clause (section 18), which took the measured rate from 3/16 to 0/16; the flaky
+  entries stay in the baseline to catch recurrence without crying wolf.
 - **Token counts are estimates** (fixed Oct 12). The gateway now records the
   provider's own usage fields — LangChain standardizes them across all four
   adapters — and falls back to the ~4-characters-per-token estimate only when a
@@ -674,7 +678,11 @@ deployments get versions and gates.
   shipped; since later the same day it is the provider's own counts wherever they
   are reported (see the token-counts item below).
 - **No prompt registry.** Models are registered and versioned; prompts are not, even
-  though a prompt change has been shown here to move eval results.
+  though a prompt change has been shown here to move eval results — most sharply in
+  section 18, where two wordings of the same fencing idea moved *different* failures
+  on the same model, and landing one clause safely took five measurement passes
+  across three models. A prompt change is a deployment; deployments get versions and
+  gates.
 - **The refusal check is phrase-matched and model-specific.** The marker list had to be
   extended for the local model, again for Claude, and again for Qwen3 — the same correct
   refusal, phrased differently each time ("does not include", "not specified"). The red

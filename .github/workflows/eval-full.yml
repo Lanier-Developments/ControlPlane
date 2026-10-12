@@ -352,6 +352,11 @@ jobs:
       DEFAULT_MODEL: bedrock/claude-sonnet-4-6
       # The policy fallback answers the ceiling-denied items, so it must be present.
       FALLBACK_CHAT_MODEL: llama3.1:8b
+      # The judge grades against restricted-classified context, which the ceiling
+      # would deny the cloud model anyway; requesting the local model directly
+      # saves a denial row per judged claim. Also the independence arrangement:
+      # the grader is not the model that wrote the answers.
+      JUDGE_MODEL: ollama/llama3.1:8b
       AWS_REGION: us-east-1
       TOP_K: "8"
       MODELS_DIR: /home/runner/ollama-models
@@ -422,7 +427,10 @@ jobs:
         run: python -m provenance.rls_test
 
       - name: Score golden set (full tier, Bedrock)
-        run: python -m provenance.evals --tier full --report eval-report-bedrock.json
+        run: |
+          python -m provenance.evals --tier full \
+            ${{ inputs.judge && '--judge' || '' }} \
+            --report eval-report-bedrock.json
 
       # The denials for ceiling-blocked items should be visible, not inferred.
       - name: Model call log

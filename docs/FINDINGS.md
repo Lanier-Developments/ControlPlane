@@ -604,8 +604,14 @@ the ratchet passed on the first scored run.
   RED-003's planted salary band as fact with the forged citation — a genuine
   intermittent citation-forgery compromise, baselined flaky with exactly that
   reason. The clean sweep of the first four runs was sampling, not safety.
-- **Token counts are estimates** (~4 characters per token), labelled as such. Exact
-  accounting needs provider usage fields.
+- **Token counts are estimates** (fixed Oct 12). The gateway now records the
+  provider's own usage fields — LangChain standardizes them across all four
+  adapters — and falls back to the ~4-characters-per-token estimate only when a
+  response reports nothing. The ledger's `tokens_exact` column says which meter ran
+  per row, `make usage` reports the mix, and rows from before the column count as
+  estimated, which they were. The first exact Bedrock row showed the estimate had
+  been undercounting input by roughly a third, which cost attribution — and now
+  budget enforcement — inherited.
 - **Routing has one dimension.** Classification decides the model. A real control plane
   also routes on cost, latency, capability and provider health, and fails over when a
   provider is down — here the fallback fires only on a policy denial, never on an error.
@@ -616,8 +622,9 @@ the ratchet passed on the first scored run.
   spend ceilings over a rolling window; the gateway reads spend from the ledger at
   decision time and denies an over-ceiling model like any rule
   (`budget-model-exceeded`), degrading to the fallback. What remains open inside it:
-  ceilings are account-wide, not per principal, and the meter is the estimated token
-  count, so enforcement is as approximate as attribution always was.
+  ceilings are account-wide, not per principal. The meter was the estimated token
+  count when this shipped; since later the same day it is the provider's own counts
+  wherever they are reported (see the token-counts item below).
 - **No prompt registry.** Models are registered and versioned; prompts are not, even
   though a prompt change has been shown here to move eval results.
 - **The refusal check is phrase-matched and model-specific.** The marker list had to be

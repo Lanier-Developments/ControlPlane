@@ -112,9 +112,16 @@ CREATE TABLE IF NOT EXISTS model_calls (
     cache_hit        boolean     NOT NULL DEFAULT false,
     prompt_tokens    int,
     completion_tokens int,
+    -- true when the counts came from the provider's usage fields, false when they
+    -- are the ~4-chars-per-token estimate. Which meter produced a number is part
+    -- of the record: cost and budget enforcement are only as exact as this flag.
+    tokens_exact     boolean,
     cost_usd         numeric(12, 6),
     latency_ms       int
 );
+
+-- Existing databases predate the column; the migrate path re-applies this file.
+ALTER TABLE model_calls ADD COLUMN IF NOT EXISTS tokens_exact boolean;
 
 CREATE INDEX IF NOT EXISTS model_calls_occurred_idx ON model_calls (occurred_at DESC);
 CREATE INDEX IF NOT EXISTS model_calls_correlation_idx ON model_calls (correlation_id);

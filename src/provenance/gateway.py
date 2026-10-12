@@ -44,14 +44,19 @@ class Completion:
     latency_ms: int
     correlation_id: str
     decisions: list[Decision] = field(default_factory=list)
+    # True when the token counts came from the provider's usage fields rather than
+    # the estimate. Carried on the response and in the ledger: a cost is only as
+    # exact as its meter, and which meter ran is part of the record.
+    tokens_exact: bool = False
 
 
 def estimate_tokens(text: str) -> int:
     """Rough token count: ~4 characters per token.
 
-    Deliberately approximate and labelled as such. Exact accounting needs provider
-    usage fields, which Phase 6 records from the response. An estimate that everyone
-    knows is an estimate beats a precise-looking number nobody checked.
+    The fallback meter, used only when a provider response carries no usage
+    fields; the ledger's tokens_exact column records which meter ran. An estimate
+    that everyone knows is an estimate beats a precise-looking number nobody
+    checked.
     """
     return max(1, len(text) // 4)
 
@@ -98,11 +103,11 @@ def _log_call(**kw) -> None:
             INSERT INTO model_calls (call_id, correlation_id, principal, requested_model,
                                      resolved_model, classification, decision, reason,
                                      rule_id, cache_hit, prompt_tokens, completion_tokens,
-                                     cost_usd, latency_ms)
+                                     tokens_exact, cost_usd, latency_ms)
             VALUES (%(call_id)s, %(correlation_id)s, %(principal)s, %(requested_model)s,
                     %(resolved_model)s, %(classification)s, %(decision)s, %(reason)s,
                     %(rule_id)s, %(cache_hit)s, %(prompt_tokens)s, %(completion_tokens)s,
-                    %(cost_usd)s, %(latency_ms)s)
+                    %(tokens_exact)s, %(cost_usd)s, %(latency_ms)s)
             """,
             kw,
         )
@@ -133,7 +138,7 @@ def _budget_denial(model: Model) -> Decision | None:
     return evaluate_budget(model, float(for_model), float(total))
 
 
-def _invoke(model: Model, prompt: str, system: str | None) -> str:
+def _invoke(model: Model, prompt: str, system: str | None) -> tuple[str, dict | None]:
     """Provider dispatch. The only code that touches a model client."""
     from langchain_core.messages import HumanMessage, SystemMessage
 
@@ -188,10 +193,13 @@ def _invoke(model: Model, prompt: str, system: str | None) -> str:
     else:
         raise RuntimeError(f"{model.id}: unknown provider {model.provider}")
 
-    content = client.invoke(messages).content
-    if isinstance(content, str):
-        return content
-    return "".join(b.get("text", "") for b in content if isinstance(b, dict))
+    message = client.invoke(messages)
+    content = message.content
+    if not isinstance(content, str):
+        content = "".join(b.get("text", "") for b in content if isinstance(b, dict))
+    # LangChain standardizes provider usage reporting on usage_metadata; a provider
+    # that reports nothing yields None and the caller falls back to the estimate.
+    return content, getattr(message, "usage_metadata", None)
 
 
 def complete(
@@ -218,7 +226,7 @@ def complete(
     decisions = [d for d in (decision, fallback) if d]
     chosen = fallback if (fallback and fallback.allowed) else decision
 
-    def log(model_id, cache_hit, pt, ct, cost, latency, dec):
+    def log(model_id, cache_hit, pt, ct, cost, latency, dec, exact=None):
         _log_call(
             call_id=str(uuid.uuid4()),
             correlation_id=correlation_id,
@@ -232,6 +240,7 @@ def complete(
             cache_hit=cache_hit,
             prompt_tokens=pt,
             completion_tokens=ct,
+            tokens_exact=exact,
             cost_usd=cost,
             latency_ms=latency,
         )
@@ -270,26 +279,36 @@ def complete(
 
     cached = _cache_get(key)
     if cached is not None:
-        log(model.id, True, 0, 0, 0.0, 0, chosen)
+        # Zero tokens moved and zero cost is exact, not estimated.
+        log(model.id, True, 0, 0, 0.0, 0, chosen, exact=True)
         return Completion(
             text=cached, model_id=model.id, cache_hit=True, cost_usd=0.0,
             prompt_tokens=0, completion_tokens=0, latency_ms=0,
-            correlation_id=correlation_id, decisions=decisions,
+            correlation_id=correlation_id, decisions=decisions, tokens_exact=True,
         )
 
     started = time.monotonic()
-    text = _invoke(model, prompt, system)
+    text, usage = _invoke(model, prompt, system)
     latency_ms = int((time.monotonic() - started) * 1000)
 
-    prompt_tokens = estimate_tokens(full_prompt)
-    completion_tokens = estimate_tokens(text)
+    # The provider's own counts when it reports them, the estimate when it does not —
+    # and the record says which, because cost and the budget meter inherit it.
+    exact = bool(usage and usage.get("input_tokens") is not None
+                 and usage.get("output_tokens") is not None)
+    if exact:
+        prompt_tokens = usage["input_tokens"]
+        completion_tokens = usage["output_tokens"]
+    else:
+        prompt_tokens = estimate_tokens(full_prompt)
+        completion_tokens = estimate_tokens(text)
     cost = model.cost(prompt_tokens, completion_tokens)
 
     _cache_put(key, model.id, text)
-    log(model.id, False, prompt_tokens, completion_tokens, cost, latency_ms, chosen)
+    log(model.id, False, prompt_tokens, completion_tokens, cost, latency_ms, chosen, exact=exact)
 
     return Completion(
         text=text, model_id=model.id, cache_hit=False, cost_usd=cost,
         prompt_tokens=prompt_tokens, completion_tokens=completion_tokens,
         latency_ms=latency_ms, correlation_id=correlation_id, decisions=decisions,
+        tokens_exact=exact,
     )

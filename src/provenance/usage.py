@@ -22,7 +22,9 @@ def main() -> int:
             SELECT count(*), count(*) FILTER (WHERE decision = 'deny'),
                    count(*) FILTER (WHERE cache_hit), coalesce(sum(cost_usd), 0),
                    coalesce(sum(prompt_tokens), 0), coalesce(sum(completion_tokens), 0),
-                   coalesce(round(avg(latency_ms) FILTER (WHERE NOT cache_hit)), 0)
+                   coalesce(round(avg(latency_ms) FILTER (WHERE NOT cache_hit)), 0),
+                   count(*) FILTER (WHERE tokens_exact IS NOT true
+                                    AND decision = 'allow' AND NOT cache_hit)
             FROM model_calls WHERE occurred_at > now() - make_interval(hours => %s)
             """,
             (args.hours,),
@@ -47,14 +49,18 @@ def main() -> int:
             (args.hours,),
         ).fetchall()
 
-    calls, denies, hits, cost, ptok, ctok, latency = totals
+    calls, denies, hits, cost, ptok, ctok, latency, estimated = totals
     if not calls:
         print(f"No model calls in the last {args.hours}h.")
         return 0
 
+    # Which meter produced the counts is part of the number. Rows from before the
+    # tokens_exact column count as estimated, which they were.
+    meter = ("provider-reported" if not estimated
+             else f"{estimated} of {calls - denies - hits} generated calls estimated")
     print(f"## Model calls, last {args.hours}h\n")
     print(f"- Calls: {calls}  ({denies} denied, {hits} served from cache)")
-    print(f"- Tokens: {ptok:,} in / {ctok:,} out (estimated)")
+    print(f"- Tokens: {ptok:,} in / {ctok:,} out ({meter})")
     print(f"- Cost: ${cost:.4f}")
     print(f"- Mean latency, uncached: {latency} ms")
 

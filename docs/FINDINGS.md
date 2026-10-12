@@ -611,7 +611,13 @@ the ratchet passed on the first scored run.
   provider is down — here the fallback fires only on a policy denial, never on an error.
 - **No data-residency axis.** The registry says which model may see which classification,
   not where inference may physically run.
-- **No quotas or budgets.** Cost is attributed after the fact; nothing enforces a ceiling.
+- **No quotas or budgets** (fixed Oct 12). Cost was attributed after the fact with
+  nothing enforcing a ceiling. `policy/routing.yaml` now sets per-model and total
+  spend ceilings over a rolling window; the gateway reads spend from the ledger at
+  decision time and denies an over-ceiling model like any rule
+  (`budget-model-exceeded`), degrading to the fallback. What remains open inside it:
+  ceilings are account-wide, not per principal, and the meter is the estimated token
+  count, so enforcement is as approximate as attribution always was.
 - **No prompt registry.** Models are registered and versioned; prompts are not, even
   though a prompt change has been shown here to move eval results.
 - **The refusal check is phrase-matched and model-specific.** The marker list had to be

@@ -58,3 +58,17 @@ rules:
 # When a request is denied, fall back to this model rather than failing the request,
 # provided the fallback itself passes policy. Set to null to fail the request instead.
 fallback_model: ollama/llama3.1:8b
+
+# Spend ceilings, enforced at the gateway before a model is invoked. Spend is the
+# ledger's sum of cost_usd over a rolling window, so the ledger is the source of
+# truth for enforcement, not just attribution. A model over its ceiling — or any
+# paid call once the total is reached — is denied like any other rule
+# (budget-model-exceeded / budget-total-exceeded) and the request degrades to the
+# fallback instead of failing. Models with zero cost rates are exempt: a free call
+# adds no spend, and the point of a budget is spend, not traffic.
+# Remove the section (or a key) to disable that ceiling.
+budgets:
+  window_hours: 24
+  total_usd: 10.00
+  models:
+    bedrock/claude-sonnet-4-6: 5.00

@@ -152,6 +152,44 @@ def fallback_model_id() -> str | None:
     return _policy().get("fallback_model")
 
 
+def budgets() -> dict:
+    return _policy().get("budgets") or {}
+
+
+def evaluate_budget(model: Model, model_spend: float, total_spend: float) -> Decision | None:
+    """Deny a model whose window spend has reached a configured ceiling.
+
+    Pure: the caller supplies the spend figures (the gateway reads them from the
+    ledger), so this decides the same way every time and policy_test can exercise
+    it without a database. Returns None when no ceiling applies — a budget is not
+    an allow, only a reason to refuse.
+
+    Zero-cost models are exempt even from the total: a free call adds no spend,
+    and a budget that blocks free traffic is a rate limit wearing the wrong name.
+    """
+    cfg = budgets()
+    if not cfg or (model.cost_per_1k_input == 0 and model.cost_per_1k_output == 0):
+        return None
+    hours = cfg.get("window_hours", 24)
+    cap = (cfg.get("models") or {}).get(model.id)
+    if cap is not None and model_spend >= cap:
+        return Decision(
+            allowed=False,
+            reason=f"{model.id} spent ${model_spend:.2f} of its ${cap:.2f} ceiling in the last {hours}h",
+            rule_id="budget-model-exceeded",
+            model=model,
+        )
+    total_cap = cfg.get("total_usd")
+    if total_cap is not None and total_spend >= total_cap:
+        return Decision(
+            allowed=False,
+            reason=f"total spend ${total_spend:.2f} reached the ${total_cap:.2f} ceiling in the last {hours}h",
+            rule_id="budget-total-exceeded",
+            model=model,
+        )
+    return None
+
+
 def resolve(
     classification: str, groups: list[str] | None = None, requested: str | None = None
 ) -> tuple[Decision, Decision | None]:

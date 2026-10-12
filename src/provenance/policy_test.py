@@ -12,8 +12,10 @@ from .registry import (
     CLASSIFICATION_ORDER,
     Model,
     RegistryError,
+    budgets,
     default_model_id,
     evaluate,
+    evaluate_budget,
     get_model,
     models,
     resolve,
@@ -103,6 +105,34 @@ def main() -> int:
         print("  FAIL  unknown model did not raise")
     except RegistryError:
         print("  PASS  unknown model raises rather than silently defaulting")
+
+    # Budgets are policy too, and evaluate_budget is pure: spend figures come from the
+    # caller, so the decision is testable here without the ledger. The committed policy
+    # must actually configure ceilings — a budget section nobody wrote enforces nothing.
+    print("\nBudgets:")
+    cfg = budgets()
+    paid = get_model(CLOUD)
+    free = get_model(LOCAL)
+    cap = (cfg.get("models") or {}).get(paid.id)
+    budget_cases = [
+        (paid, 0.0, 0.0, None, "spend inside every ceiling passes"),
+        (paid, cap, 0.0, "budget-model-exceeded", "a model at its own ceiling is refused"),
+        (paid, 0.0, cfg.get("total_usd"), "budget-total-exceeded",
+         "any paid call is refused once the total is reached"),
+        (free, 10**6, 10**6, None, "a zero-cost model is exempt — budgets cap spend, not traffic"),
+    ]
+    if not cfg or cap is None or cfg.get("total_usd") is None:
+        failures += 1
+        print("  FAIL  routing policy configures no budget ceilings")
+    else:
+        for model, model_spend, total_spend, want_rule, why in budget_cases:
+            d = evaluate_budget(model, model_spend, total_spend)
+            got_rule = d.rule_id if d else None
+            ok = got_rule == want_rule and (d is None or not d.allowed)
+            failures += not ok
+            verb = "allow" if d is None else "DENY "
+            print(f"  {'PASS' if ok else 'FAIL'}  {verb} {model.id:28}"
+                  f" [{got_rule or '-'}] — {why}")
 
     # Every registry entry must declare a classification the ordering knows about.
     for model in models().values():

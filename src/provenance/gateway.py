@@ -16,7 +16,17 @@ from dataclasses import dataclass, field
 
 from .config import settings
 from .db import owner_conn
-from .registry import Decision, Model, get_model, max_classification, resolve
+from .registry import (
+    Decision,
+    Model,
+    budgets,
+    evaluate,
+    evaluate_budget,
+    fallback_model_id,
+    get_model,
+    max_classification,
+    resolve,
+)
 
 
 class PolicyDenied(Exception):
@@ -97,6 +107,30 @@ def _log_call(**kw) -> None:
             kw,
         )
         conn.commit()
+
+
+def _budget_denial(model: Model) -> Decision | None:
+    """The ledger is the source of truth for spend, so enforcement reads it too.
+
+    One query, and only for models that cost money under a configured budget —
+    the all-local path never touches this. Spend inside the window is summed at
+    decision time rather than kept as a counter, so there is nothing to reset
+    and nothing that can drift from what the ledger says was spent.
+    """
+    if not budgets() or (model.cost_per_1k_input == 0 and model.cost_per_1k_output == 0):
+        return None
+    hours = budgets().get("window_hours", 24)
+    with owner_conn() as conn:
+        total, for_model = conn.execute(
+            """
+            SELECT coalesce(sum(cost_usd), 0),
+                   coalesce(sum(cost_usd) FILTER (WHERE resolved_model = %s), 0)
+            FROM model_calls
+            WHERE occurred_at > now() - make_interval(hours => %s)
+            """,
+            (model.id, hours),
+        ).fetchone()
+    return evaluate_budget(model, float(for_model), float(total))
 
 
 def _invoke(model: Model, prompt: str, system: str | None) -> str:
@@ -211,6 +245,24 @@ def complete(
         raise PolicyDenied(
             f"No approved model may process {classification} content: {chosen.reason}"
         )
+
+    # Budget, after policy: a model the rules allow may still be refused because its
+    # window spend reached a ceiling. The denial is logged and the request degrades
+    # to the fallback — same shape as a classification denial, and for the same
+    # reason: refusing the request punishes the user for the model's spending.
+    over = _budget_denial(chosen.model)
+    if over:
+        decisions.append(over)
+        log(over.model.id, False, None, None, None, None, over)
+        chosen = None
+        fb_id = fallback_model_id()
+        if fb_id and fb_id != over.model.id:
+            fb = evaluate(get_model(fb_id), classification, groups)
+            if fb.allowed and not _budget_denial(fb.model):
+                decisions.append(fb)
+                chosen = fb
+        if chosen is None:
+            raise PolicyDenied(f"Budget exhausted and no fallback available: {over.reason}")
 
     model = chosen.model
     full_prompt = f"{system}\n\n{prompt}" if system else prompt

@@ -8,6 +8,7 @@ import argparse
 import sys
 
 from .db import owner_conn
+from .registry import budgets
 
 
 def main() -> int:
@@ -64,6 +65,31 @@ def main() -> int:
     print("\n| Model | Calls | Cost |\n|---|---|---|")
     for model_id, n, model_cost in by_model:
         print(f"| {model_id} | {n} | ${model_cost:.4f} |")
+
+    # Budget headroom, over the budget window rather than --hours: enforcement and
+    # report must read the same number or the report is decoration.
+    cfg = budgets()
+    if cfg:
+        hours = cfg.get("window_hours", 24)
+        with owner_conn() as conn:
+            spend = dict(conn.execute(
+                """
+                SELECT resolved_model, coalesce(sum(cost_usd), 0) FROM model_calls
+                WHERE occurred_at > now() - make_interval(hours => %s)
+                GROUP BY resolved_model
+                """,
+                (hours,),
+            ).fetchall())
+        total = float(sum(spend.values()))
+        print(f"\n## Budgets, rolling {hours}h\n")
+        rows = [("total", total, cfg.get("total_usd"))]
+        rows += [(m, float(spend.get(m, 0)), cap) for m, cap in (cfg.get("models") or {}).items()]
+        print("| Scope | Spent | Ceiling | |\n|---|---|---|---|")
+        for scope, spent, cap in rows:
+            if cap is None:
+                continue
+            state = "EXCEEDED — paid calls degrade to the fallback" if spent >= cap else "ok"
+            print(f"| {scope} | ${spent:.4f} | ${cap:.2f} | {state} |")
 
     return 0
 

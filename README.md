@@ -367,6 +367,8 @@ This is the direct lesson from a prior control-plane build where model selection
 
 **Refusals are logged before anything else runs.** A denial that leaves no trace is indistinguishable from a policy that was never evaluated. `model_calls` records the refusal, the rule that produced it, and the fallback that actually answered.
 
+**Provider errors fail over, through the same policy.** When the chosen model's invoke raises — provider down, timeout, a gated or vanished model id — the failure is logged as its own decision (`provider-error`, with the exception in the reason: a crash with no record is indistinguishable from a call that never happened), and the request degrades to the fallback after the same policy and budget checks every call gets. It is failover, not retry: the primary gets one attempt, and if the fallback fails too, both failures are in the ledger before the error propagates.
+
 **Cache and cost.** Responses are cached on a hash of model plus full prompt, with a TTL. Cost is attributed per call from the registry's rates, on the provider's own token counts: every provider adapter returns LangChain's standardized usage fields, and the ~4-characters-per-token estimate remains only as the fallback for a response that reports nothing. The ledger's `tokens_exact` column records which meter ran on every row, because a cost is only as exact as its meter — the first measured comparison had the estimate undercounting a Bedrock call's input by roughly a third. `make usage` says how many calls in the window were estimated rather than silently mixing the two.
 
 `make usage` reports which rules are firing and how often calls are refused, not just the dollar total. Which rules fire is the governance question; the dollars are a side effect.

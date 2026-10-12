@@ -613,8 +613,12 @@ the ratchet passed on the first scored run.
   been undercounting input by roughly a third, which cost attribution — and now
   budget enforcement — inherited.
 - **Routing has one dimension.** Classification decides the model. A real control plane
-  also routes on cost, latency, capability and provider health, and fails over when a
-  provider is down — here the fallback fires only on a policy denial, never on an error.
+  also routes on cost, latency and capability. Provider-health failover closed on
+  Oct 12: an invoke error is logged as its own decision (`provider-error`) and the
+  request degrades to the fallback through the same policy and budget checks — so the
+  fallback now fires on policy denials, budget ceilings and provider errors alike.
+  What this still is not: proactive routing. The gateway reacts to a failure on the
+  call it was asked to make; it does not steer around a degraded provider in advance.
 - **No data-residency axis.** The registry says which model may see which classification,
   not where inference may physically run.
 - **No quotas or budgets** (fixed Oct 12). Cost was attributed after the fact with

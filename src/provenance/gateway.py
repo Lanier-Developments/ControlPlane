@@ -292,8 +292,49 @@ def complete(
             correlation_id=correlation_id, decisions=decisions, tokens_exact=True,
         )
 
+    # Provider errors fail over, the same degrade shape as a policy or budget
+    # denial: the failure is logged as its own decision (provider-error — a crash
+    # with no record is indistinguishable from a call that never happened), then
+    # the fallback is run through the same policy and budget checks before it is
+    # invoked. This is failover, not retry: the primary gets one attempt, and a
+    # caller who wants the primary's answer asks again. The fallback skips the
+    # cache read — its key was never looked up — and if it fails too, both
+    # failures are in the ledger and the second exception propagates.
     started = time.monotonic()
-    text, usage = _invoke(model, prompt, system)
+    try:
+        text, usage = _invoke(model, prompt, system)
+    except Exception as exc:
+        err = Decision(
+            allowed=False,
+            reason=f"{model.id} failed: {type(exc).__name__}: {str(exc)[:200]}",
+            rule_id="provider-error",
+            model=model,
+        )
+        decisions.append(err)
+        log(model.id, False, None, None, None,
+            int((time.monotonic() - started) * 1000), err)
+        fb_id = fallback_model_id()
+        if not fb_id or fb_id == model.id:
+            raise
+        fb = evaluate(get_model(fb_id), classification, groups)
+        if not fb.allowed or _budget_denial(fb.model, principal):
+            raise
+        decisions.append(fb)
+        chosen, model = fb, fb.model
+        key = cache_key(model.id, full_prompt)
+        started = time.monotonic()
+        try:
+            text, usage = _invoke(model, prompt, system)
+        except Exception as fb_exc:
+            fb_err = Decision(
+                allowed=False,
+                reason=f"{model.id} failed: {type(fb_exc).__name__}: {str(fb_exc)[:200]}",
+                rule_id="provider-error",
+                model=model,
+            )
+            log(model.id, False, None, None, None,
+                int((time.monotonic() - started) * 1000), fb_err)
+            raise
     latency_ms = int((time.monotonic() - started) * 1000)
 
     # The provider's own counts when it reports them, the estimate when it does not —

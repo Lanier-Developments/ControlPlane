@@ -67,8 +67,15 @@ fallback_model: ollama/llama3.1:8b
 # fallback instead of failing. Models with zero cost rates are exempt: a free call
 # adds no spend, and the point of a budget is spend, not traffic.
 # Remove the section (or a key) to disable that ceiling.
+# principal_usd caps each caller's paid spend in the window; principals: overrides
+# the default for named callers (evals and the red team run as sam). A call with no
+# principal is metered as one shared anonymous bucket under the default cap — if
+# anonymous calls were exempt, omitting the principal would be the bypass.
 budgets:
   window_hours: 24
   total_usd: 10.00
   models:
     bedrock/claude-sonnet-4-6: 5.00
+  principal_usd: 2.00
+  principals:
+    sam: 5.00

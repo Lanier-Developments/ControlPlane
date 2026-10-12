@@ -156,7 +156,27 @@ def budgets() -> dict:
     return _policy().get("budgets") or {}
 
 
-def evaluate_budget(model: Model, model_spend: float, total_spend: float) -> Decision | None:
+def principal_cap(principal: str | None) -> float | None:
+    """The spend ceiling for this caller: a named override, else the default.
+
+    An anonymous call gets the default cap, never an override — if omitting the
+    principal earned a higher ceiling, omitting it would be the bypass.
+    """
+    cfg = budgets()
+    if principal is not None:
+        override = (cfg.get("principals") or {}).get(principal)
+        if override is not None:
+            return override
+    return cfg.get("principal_usd")
+
+
+def evaluate_budget(
+    model: Model,
+    model_spend: float,
+    total_spend: float,
+    principal: str | None = None,
+    principal_spend: float = 0.0,
+) -> Decision | None:
     """Deny a model whose window spend has reached a configured ceiling.
 
     Pure: the caller supplies the spend figures (the gateway reads them from the
@@ -177,6 +197,15 @@ def evaluate_budget(model: Model, model_spend: float, total_spend: float) -> Dec
             allowed=False,
             reason=f"{model.id} spent ${model_spend:.2f} of its ${cap:.2f} ceiling in the last {hours}h",
             rule_id="budget-model-exceeded",
+            model=model,
+        )
+    p_cap = principal_cap(principal)
+    if p_cap is not None and principal_spend >= p_cap:
+        who = principal or "(anonymous)"
+        return Decision(
+            allowed=False,
+            reason=f"{who} spent ${principal_spend:.2f} of their ${p_cap:.2f} ceiling in the last {hours}h",
+            rule_id="budget-principal-exceeded",
             model=model,
         )
     total_cap = cfg.get("total_usd")

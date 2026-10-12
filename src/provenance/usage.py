@@ -8,7 +8,7 @@ import argparse
 import sys
 
 from .db import owner_conn
-from .registry import budgets
+from .registry import budgets, principal_cap
 
 
 def main() -> int:
@@ -86,10 +86,21 @@ def main() -> int:
                 """,
                 (hours,),
             ).fetchall())
+            by_principal = conn.execute(
+                """
+                SELECT principal, coalesce(sum(cost_usd), 0) FROM model_calls
+                WHERE occurred_at > now() - make_interval(hours => %s)
+                GROUP BY principal ORDER BY 2 DESC
+                """,
+                (hours,),
+            ).fetchall()
         total = float(sum(spend.values()))
         print(f"\n## Budgets, rolling {hours}h\n")
         rows = [("total", total, cfg.get("total_usd"))]
         rows += [(m, float(spend.get(m, 0)), cap) for m, cap in (cfg.get("models") or {}).items()]
+        # Callers seen in the window, each against their own ceiling. A NULL
+        # principal is the shared anonymous bucket, metered like anyone else.
+        rows += [(p or "(anonymous)", float(s), principal_cap(p)) for p, s in by_principal]
         print("| Scope | Spent | Ceiling | |\n|---|---|---|---|")
         for scope, spent, cap in rows:
             if cap is None:

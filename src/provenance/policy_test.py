@@ -114,19 +114,32 @@ def main() -> int:
     paid = get_model(CLOUD)
     free = get_model(LOCAL)
     cap = (cfg.get("models") or {}).get(paid.id)
+    p_cap = cfg.get("principal_usd")
+    override = (cfg.get("principals") or {}).get("sam")
+    # (model, model_spend, total_spend, principal, principal_spend, expected rule, why)
     budget_cases = [
-        (paid, 0.0, 0.0, None, "spend inside every ceiling passes"),
-        (paid, cap, 0.0, "budget-model-exceeded", "a model at its own ceiling is refused"),
-        (paid, 0.0, cfg.get("total_usd"), "budget-total-exceeded",
+        (paid, 0.0, 0.0, None, 0.0, None, "spend inside every ceiling passes"),
+        (paid, cap, 0.0, None, 0.0, "budget-model-exceeded",
+         "a model at its own ceiling is refused"),
+        (paid, 0.0, cfg.get("total_usd"), None, 0.0, "budget-total-exceeded",
          "any paid call is refused once the total is reached"),
-        (free, 10**6, 10**6, None, "a zero-cost model is exempt — budgets cap spend, not traffic"),
+        (paid, 0.0, 0.0, "dana", p_cap, "budget-principal-exceeded",
+         "a caller at the per-principal ceiling is refused"),
+        (paid, 0.0, 0.0, "sam", p_cap, None,
+         "a named override raises one caller's ceiling"),
+        (paid, 0.0, 0.0, "sam", override, "budget-principal-exceeded",
+         "the override is a ceiling too, not an exemption"),
+        (paid, 0.0, 0.0, None, p_cap, "budget-principal-exceeded",
+         "anonymous calls share one bucket under the default cap — no bypass by omission"),
+        (free, 10**6, 10**6, "dana", 10**6, None,
+         "a zero-cost model is exempt — budgets cap spend, not traffic"),
     ]
-    if not cfg or cap is None or cfg.get("total_usd") is None:
+    if not cfg or cap is None or cfg.get("total_usd") is None or p_cap is None or override is None:
         failures += 1
         print("  FAIL  routing policy configures no budget ceilings")
     else:
-        for model, model_spend, total_spend, want_rule, why in budget_cases:
-            d = evaluate_budget(model, model_spend, total_spend)
+        for model, model_spend, total_spend, who, p_spend, want_rule, why in budget_cases:
+            d = evaluate_budget(model, model_spend, total_spend, who, p_spend)
             got_rule = d.rule_id if d else None
             ok = got_rule == want_rule and (d is None or not d.allowed)
             failures += not ok

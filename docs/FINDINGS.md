@@ -621,10 +621,12 @@ the ratchet passed on the first scored run.
   nothing enforcing a ceiling. `policy/routing.yaml` now sets per-model and total
   spend ceilings over a rolling window; the gateway reads spend from the ledger at
   decision time and denies an over-ceiling model like any rule
-  (`budget-model-exceeded`), degrading to the fallback. What remains open inside it:
-  ceilings are account-wide, not per principal. The meter was the estimated token
-  count when this shipped; since later the same day it is the provider's own counts
-  wherever they are reported (see the token-counts item below).
+  (`budget-model-exceeded`), degrading to the fallback. Per-principal ceilings
+  followed the same day (`budget-principal-exceeded`: a default cap, named
+  overrides, and anonymous calls metered as one shared bucket so omitting the
+  principal is not the bypass). The meter was the estimated token count when this
+  shipped; since later the same day it is the provider's own counts wherever they
+  are reported (see the token-counts item below).
 - **No prompt registry.** Models are registered and versioned; prompts are not, even
   though a prompt change has been shown here to move eval results.
 - **The refusal check is phrase-matched and model-specific.** The marker list had to be

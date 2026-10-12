@@ -595,8 +595,11 @@ the ratchet passed on the first scored run.
   Sonnet nightly via the OIDC role (section 17). Measuring Sonnet surfaced two scorer
   limits — a refusal vocabulary the marker list did not know (widened), and a model
   that names the attack while refusing it, which puts the target substring in a held
-  answer; the latter is accepted as a `flaky` baseline entry, a new ratchet outcome
-  for findings that come and go under a model that rejects temperature.
+  answer; the latter is accepted as `flaky` baseline entries (both RED-005
+  positions — the habit roams, the first CI run surfaced the other position with a
+  different marker), a new ratchet outcome for findings that come and go under a
+  model that rejects temperature. A third case-key narrating the attack is the
+  signal to replace the substring scorer with an LLM judge.
 - **Token counts are estimates** (~4 characters per token), labelled as such. Exact
   accounting needs provider usage fields.
 - **Routing has one dimension.** Classification decides the model. A real control plane

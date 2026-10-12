@@ -519,6 +519,46 @@ fooled by the same unfenced prompt. The judge stays advisory. One run of agreeme
 a 44-item set is evidence it works, not proof it always will, and a non-deterministic
 check that blocks merges will eventually block one for no reason.
 
+## 17. The OIDC trust policy that every doc shows cannot match (Oct 12, 2026)
+
+The Bedrock CI job authenticates by GitHub OIDC: no stored secret, a role whose
+trust policy pins the audience and `repo:Lanier-Developments/ControlPlane:ref:refs/heads/main`
+as its subject — the exact form AWS's and GitHub's own documentation give. The first
+run failed the credential exchange with `Not authorized to perform
+sts:AssumeRoleWithWebIdentity`, an error that names neither the claim it checked nor
+the value it saw.
+
+The first theory was timing: the provider and role were created about two minutes
+before the run tried to use them, and IAM propagation is a known few-minute window. A
+rerun half an hour later failed identically, which killed that theory. What settled it
+was CloudTrail's record of the refusal — the one place the actual token claim
+appears. The subject GitHub sent was
+
+    repo:Lanier-Developments@296288988/ControlPlane@1368171693:ref:refs/heads/main
+
+GitHub embeds the immutable owner and repository IDs in the subject, so the
+documented name-only pattern matches nothing this account will ever send. The IDs
+check out against the live repo (`gh api repos/...`), and the account sits in no AWS
+Organization, so no SCP was in play. The trust policy now lists both forms — the
+documented one in case the format differs per account or reverts, the ID-qualified
+one that actually matches — and the next attempt assumed the role on the first try.
+The ID-qualified form is the stronger condition anyway: names survive a rename-and-
+resquat, immutable IDs do not.
+
+Two lessons. The config that reads correctly and the config that works are confirmed
+by different instruments: everything here — trust policy, audience, provider — read
+back exactly as designed while failing every attempt, and only the provider's
+*refusal log* held the ground truth. And a pre-registered failure theory is worth the
+sentence it costs: "if the rerun fails the same way, propagation is ruled out" turned
+the second failure from a mystery into an elimination.
+
+The run after the fix is the payoff the job was built for: 31 items answered by
+`bedrock/claude-sonnet-4-6` with zero failed checks, and the 13 confidential and
+restricted items denied it by the registry ceiling and answered by the policy
+fallback — where G30 and G32 reproduce exactly, because the fallback is
+`llama3.1:8b`, the model the baseline was measured on. The denials sit in the ledger;
+the ratchet passed on the first scored run.
+
 ## What is still open
 
 

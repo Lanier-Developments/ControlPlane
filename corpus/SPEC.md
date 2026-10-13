@@ -51,6 +51,7 @@ Each trap maps to the phase that fixes it.
 5. **Deliberate gaps (Phase 2).** Plausible questions the corpus cannot answer, like the 401(k) match or parental leave. The correct behavior is "I don't know."
 6. **PII-bearing documents (Phase 3).** Fictional names, phone numbers, and employee IDs in incident reports, to exercise redaction at ingest.
 7. **Poisoned documents (Phase 7).** Documents with embedded instructions aimed at the model. These live in `corpus/redteam/` and are never ingested into the main collection.
+8. **ACL-split version pair (Phase 4/retrieval).** HR-013 exists in two versions with different ACLs: v1 (superseded) is all-employees, v2 (active) is hr-comp only. A caller who cannot see the active version must keep being served the superseded one, even under `SUPERSEDED_EXCLUDE=1` — exclusion trades a superseded version for its successor, never for nothing.
 
 ## Generation prompt
 

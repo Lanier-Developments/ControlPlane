@@ -81,7 +81,7 @@ Nothing about the exposure changed. Retrieval just got better at surfacing what 
 
 That failure produced two checks the gate now runs on every item: `citation_unsupported` (a tag naming a document never retrieved) and `ungrounded_value` (a currency or percentage figure appearing nowhere in the context). Both are deterministic and cost nothing.
 
-**Blocking and allowing are tested as a pair.** One item asks Dana for the engineering budget and must be refused; another asks Priya for the same figure and must be answered. A system that simply over-blocked would pass the first and fail the second. Of the 44 items, 9 are denials and 3 are confidential-but-entitled reads.
+**Blocking and allowing are tested as a pair.** One item asks Dana for the engineering budget and must be refused; another asks Priya for the same figure and must be answered. A system that simply over-blocked would pass the first and fail the second. Of the 47 items, 9 are denials and 3 are confidential-but-entitled reads.
 
 **Caveats.** The naive baseline was measured on six documents; enforcement and retrieval quality were verified on seventy. Version demotion is not exclusion by default — a retired document still reaches context for the `public` persona, whose nine visible documents nearly fill a `TOP_K=8` window; the answers cite the active version regardless, and `SUPERSEDED_EXCLUDE=1` removes it from context entirely (see [Retrieval](#retrieval-phase-3)).
 
@@ -132,7 +132,7 @@ make up                            # Postgres + pgvector
 make pull-models                   # nomic-embed-text + llama3.1:8b (a few GB)
 
 make migrate                       # owned schema, RLS policies, rag_app role
-make ingest                        # 70 documents -> ~148 chunks (a minute or two)
+make ingest                        # 72 documents -> ~154 chunks (a minute or two; incremental after that)
 ```
 
 ### Verify
@@ -142,7 +142,7 @@ Run these in order. Each answers a different question, and if one fails the late
 ```bash
 make policy-test    # registry and routing rules — no database, no model, seconds
 make rls-test       # the database actually enforces entitlements
-make eval           # retrieval tier over 44 golden items
+make eval           # retrieval tier over 47 golden items
 make eval-full      # adds answer-quality checks (calls the model; several minutes)
 ```
 
@@ -272,7 +272,7 @@ The list of accepted failures can only shrink. A permanently red gate trains peo
 
 In CI the retrieval tier blocks merges. The full tier runs on a small local model (`llama3.2:3b`) and is advisory, because a 3B model's misses are noise, not signal. The red team runs nightly alongside it under its own ratchet (`evals/redteam-baseline.yaml`) and does fail the workflow — against the local model always, and against Bedrock Sonnet in a second gating job once the OIDC role below exists. See [Red team](#red-team-phase-7).
 
-A second full-tier job runs the same 44 items against Bedrock Claude, authenticated by GitHub OIDC rather than a stored secret: the role trusts only this repo's main branch and allows only `bedrock:InvokeModel` on the one registered model (`infra/github-oidc-bedrock.sh` creates it; the job stays skipped until the `AWS_CI_ROLE_ARN` repo variable is set). It is advisory too, for a different reason — the baseline records the local model's known failures, so against a different model the gate's regressions and stale entries describe the model diff, not a break. The registry caps the model at `internal`, so the confidential and restricted items are denied it and answered by the policy fallback, visibly: those rows carry the fallback in their Model column and the denials are in the ledger.
+A second full-tier job runs the same golden set against Bedrock Claude, authenticated by GitHub OIDC rather than a stored secret: the role trusts only this repo's main branch and allows only `bedrock:InvokeModel` on the one registered model (`infra/github-oidc-bedrock.sh` creates it; the job stays skipped until the `AWS_CI_ROLE_ARN` repo variable is set). It is advisory too, for a different reason — the baseline records the local model's known failures, so against a different model the gate's regressions and stale entries describe the model diff, not a break. The registry caps the model at `internal`, so the confidential and restricted items are denied it and answered by the policy fallback, visibly: those rows carry the fallback in their Model column and the denials are in the ledger.
 
 Refusal detection is a phrase heuristic. Replace it with an LLM judge (faithfulness, answer relevance) when the corpus grows.
 
@@ -297,7 +297,7 @@ make compare       # vector vs hybrid on the golden set, retrieval tier only
 
 **Hybrid, fused with reciprocal rank fusion.** Vector search misses exact tokens — a dollar amount, a command name, a doc ID. Keyword search misses paraphrase. Both run, and RRF fuses the rankings: `score = sum(1 / (k + rank))`. RRF needs no score normalization between cosine distance and `ts_rank`, two scales that have no business being compared directly.
 
-**Superseded versions are demoted by default, excluded by choice.** "What did the old PTO policy say?" is a legitimate question, so dropping retired documents is not obviously right — but demotion has a measured limit: for the `public` persona, whose nine visible documents nearly fill a `TOP_K=8` window, a demoted chunk still lands in context (last, but present, and in the prompt). `SUPERSEDED_EXCLUDE=1` turns demotion into exclusion, enforced in the retrieval SQL rather than a Python post-filter, and only where the caller can see an active successor — a superseded version whose successor the caller cannot read is served, never traded for nothing. The two mechanisms also differ in strength: the penalty fires only when the active version happens to be a candidate for the same query; the SQL clause holds regardless of what the query matched. Measured on the golden set, exclusion changes exactly 2 of 44 retrieval contexts (both `public`-persona items where superseded `PUB-003 v1` was reaching context) and fails nothing — but the golden set contains no historical question, so what exclusion costs is unmeasured, which is why it is a toggle and not the default. With demotion, the context block labels the chunk `SUPERSEDED` and the prompt tells the model to answer from the active version.
+**Superseded versions are demoted by default, excluded by choice.** "What did the old PTO policy say?" is a legitimate question, so dropping retired documents is not obviously right — but demotion has a measured limit: for the `public` persona, whose nine visible documents nearly fill a `TOP_K=8` window, a demoted chunk still lands in context (last, but present, and in the prompt). `SUPERSEDED_EXCLUDE=1` turns demotion into exclusion, enforced in the retrieval SQL rather than a Python post-filter, and only where the caller can see an active successor — a superseded version whose successor the caller cannot read is served, never traded for nothing. The two mechanisms also differ in strength: the penalty fires only when the active version happens to be a candidate for the same query; the SQL clause holds regardless of what the query matched. The trade is measured from both sides: exclusion fails exactly 1 of 47 retrieval checks — G45, the historical question about the previous rewards terms, which demotion answers and exclusion cannot — and that known price is why demotion stays the default. The never-traded-for-nothing guarantee has a live instance: HR-013's superseded v1 is `all-employees` while its active v2 is `hr-comp` only, so under exclusion the same SQL clause keeps serving v1 to a caller who cannot see v2 and shadows it for one who can (`make rls-test` asserts both directions; G46/G47 cover them end to end). With demotion, the context block labels the chunk `SUPERSEDED` and the prompt tells the model to answer from the active version.
 
 Measured effect: superseded documents in context went from 10/10 to 0/10 with no retrieval misses introduced. Hybrid also fixed the one genuine quality failure in the baseline — a salary figure living in a table cell that vector-only retrieval surfaced but the model failed to state or cite.
 
@@ -478,13 +478,13 @@ Permissions, routing, cost and evidence — without reading any code.
 
 ```
 corpus/SPEC.md        synthetic company, personas, frontmatter schema, deliberate traps
-corpus/seed/          70 documents across six departments, ~148 chunks
+corpus/seed/          72 documents across six departments, ~154 chunks
 db/schema.sql         owned schema, RLS policies, rag_app role, gateway and ledger tables
 db/init.sql           same content, runs once on a fresh volume
 policy/models.yaml    model registry: providers, tiers, ceilings, rates, status
 policy/routing.yaml   routing rules, evaluated in order, ending in a deny; budgets
 policy/prompts.yaml   prompt registry pins: version + sha256 per prompt, gated by policy-test
-evals/golden.yaml     44 items across 9 categories
+evals/golden.yaml     47 items across 12 categories
 evals/personas.yaml   persona -> groups (identity provider stand-in)
 evals/baseline.yaml   ratchet: known failures with reasons and fix phase
 evals/redteam-baseline.yaml  red team ratchet: accepted findings per model, with reasons

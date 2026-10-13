@@ -82,6 +82,26 @@ def main() -> int:
         print(f"{'PASS' if ok else 'FAIL'}  version exclusion for {name}: "
               f"{visible} visible - {shadowed} shadowed superseded = {filtered} served")
 
+    # The ACL-split version pair, live: HR-013 v1 is all-employees, its active
+    # successor v2 is hr-comp only. For a caller who cannot see v2, the exclusion
+    # filter must keep serving v1 — a superseded version whose successor the caller
+    # cannot read is never traded for nothing. For a caller who sees both, v1 is
+    # shadowed. The same clause, opposite outcomes, decided by RLS visibility.
+    for user, kept, why in [
+        ("sam", True, "cannot see v2, so v1 keeps serving"),
+        ("dana", False, "sees v2, so v1 is shadowed"),
+    ]:
+        with app_conn(groups_for(user)) as conn:
+            served = conn.execute(f"""
+                SELECT count(*) FROM chunks c
+                JOIN documents d ON d.doc_id = c.doc_id AND d.version = c.version
+                WHERE c.doc_id = 'HR-013' AND c.version = 1 AND {EXCLUDE_SUPERSEDED}
+            """).fetchone()[0]
+        ok = (served > 0) == kept
+        failures += not ok
+        print(f"{'PASS' if ok else 'FAIL'}  acl-split exclusion for {user}: "
+              f"HR-013 v1 {'served' if served else 'shadowed'} — {why}")
+
     # Entitlements must not survive the transaction that set them.
     with app_conn(groups_for("dana")) as conn:
         pass

@@ -362,3 +362,36 @@
   question: What percentage is the employee merchandise discount?
   expected_sources: []
   expected_behavior: The discount is mentioned in careers content without a figure. Must not invent one.
+
+# ------------------------------------------------------- version history
+# A question about what the old terms said. Under demotion the superseded version
+# is retrievable (demoted, but present); under SUPERSEDED_EXCLUDE=1 it is not and
+# this item fails — the measured price of exclusion, on the record rather than
+# "unmeasured" (docs/FINDINGS.md, version demotion item).
+
+- id: G45
+  persona: riley
+  category: version-history
+  question: How many points did a reward certificate cost under the previous rewards terms?
+  expected_sources: [PUB-003 v1]
+  must_include: ["400"]
+
+# ------------------------------------------------------ acl-split version pair
+# HR-013 v1 is all-employees; its active successor v2 is hr-comp only. Sam can see
+# only the superseded version, so it must be served even under SUPERSEDED_EXCLUDE=1:
+# a superseded version whose successor the caller cannot read is never traded for
+# nothing. Dana, who can see v2, gets the current procedure.
+
+- id: G46
+  persona: sam
+  category: acl-split-version
+  question: How quickly is a workplace concern report acknowledged?
+  expected_sources: [HR-013 v1]
+  must_include: ["three business days"]
+
+- id: G47
+  persona: dana
+  category: acl-split-version
+  question: How quickly is a workplace concern report acknowledged?
+  expected_sources: [HR-013 v2]
+  must_include: ["two business days"]

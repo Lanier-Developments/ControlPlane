@@ -4,9 +4,10 @@ What building this actually surfaced. Every number came from a run in the repo; 
 commands that produce them are in the README.
 
 The system under test: a governed enterprise RAG pipeline over a synthetic corpus of
-70 documents (148 chunks) across six departments, with real access control lists, seven
-version-conflict pairs, and documents classified public through restricted. Scored
-against 44 golden-set items across five personas.
+72 documents (154 chunks) across six departments, with real access control lists, eleven
+version pairs (one with split ACLs), and documents classified public through restricted.
+Scored against 47 golden-set items across five personas. Counts inside dated sections
+are what the corpus held on that date.
 
 ---
 
@@ -626,12 +627,18 @@ deployments get versions and gates.
   when the active version happens to be a candidate for the same query. Measured:
   exclusion changes exactly 2 of 44 golden-set retrieval contexts (both `public`
   persona), fails nothing, and `make rls-test` now proves the clause removes exactly
-  the shadowed superseded chunks, computed independently per caller. Demotion stays
-  the default, honestly: the golden set contains no "what did the old policy say?"
-  item, so what exclusion costs is unmeasured — a toggle is the most the evidence
-  supports. Also unexercised: the corpus has no superseded version whose successor
-  carries a narrower ACL, so the never-traded-for-nothing property rests on the SQL's
-  semantics under RLS, not on a live instance.
+  the shadowed superseded chunks, computed independently per caller. Both of this
+  item's original blind spots closed on Oct 14. The price of exclusion is now
+  measured, not merely suspected: G45 asks what the *previous* rewards terms charged
+  for a certificate, passes under demotion (the 8B answered "400 points
+  [PUB-003 v1 SUPERSEDED]"), and fails under `SUPERSEDED_EXCLUDE=1` with a retrieval
+  miss — exactly 1 of 47 checks, the known cost of the stronger guarantee, which is
+  why demotion stays the default. And the never-traded-for-nothing property has a
+  live instance instead of resting on SQL semantics: HR-013's superseded v1 is
+  all-employees while its active v2 is hr-comp only, so the same exclusion clause
+  keeps serving v1 to sam (who cannot see v2) and shadows it for dana (who can) —
+  both directions asserted in `make rls-test` and as golden items G46/G47, where the
+  model answered sam from v1 ("three business days") and dana from v2 ("two").
 - **Identity is a stand-in** (fixed Oct 13). Group membership came from a YAML file
   rather than an identity provider. With `AUTH_MODE=oidc`, identity now comes from a
   verified bearer JWT on both entry points: the API since Oct 11, and the CLI since

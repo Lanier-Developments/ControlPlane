@@ -614,9 +614,24 @@ deployments get versions and gates.
   `judge: true`, both full-tier jobs; the first CI run reproduced the local result
   exactly). It remains advisory and outside the gate; `citation_missing` is still
   the gated failure on that item.
-- **Version demotion is not exclusion.** A retired document still reaches context for the
-  `public` persona, whose nine visible documents nearly fill a `TOP_K=8` window. Answers
-  cite the active version regardless, but the mechanism is a ranking penalty, not a filter.
+- **Version demotion is not exclusion** (toggle added Oct 13). A retired document still
+  reaches context for the `public` persona, whose nine visible documents nearly fill a
+  `TOP_K=8` window — measured: superseded `PUB-003 v1` sat in riley's context on both
+  rewards questions, demoted to last place but present, in the prompt and the traces.
+  `SUPERSEDED_EXCLUDE=1` now turns the penalty into a SQL clause: a superseded chunk is
+  dropped at retrieval whenever the caller can see an active version of the same
+  document. Enforced in the query, not a Python post-filter, and under RLS — so a
+  superseded version whose successor the caller cannot read is still served, never
+  traded for nothing. It is also strictly stronger than the penalty, which fires only
+  when the active version happens to be a candidate for the same query. Measured:
+  exclusion changes exactly 2 of 44 golden-set retrieval contexts (both `public`
+  persona), fails nothing, and `make rls-test` now proves the clause removes exactly
+  the shadowed superseded chunks, computed independently per caller. Demotion stays
+  the default, honestly: the golden set contains no "what did the old policy say?"
+  item, so what exclusion costs is unmeasured — a toggle is the most the evidence
+  supports. Also unexercised: the corpus has no superseded version whose successor
+  carries a narrower ACL, so the never-traded-for-nothing property rests on the SQL's
+  semantics under RLS, not on a live instance.
 - **Identity is a stand-in** (fixed Oct 13). Group membership came from a YAML file
   rather than an identity provider. With `AUTH_MODE=oidc`, identity now comes from a
   verified bearer JWT on both entry points: the API since Oct 11, and the CLI since

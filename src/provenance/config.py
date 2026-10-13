@@ -42,6 +42,13 @@ class Settings(BaseSettings):
     keyword_weight: float = 1.0
     prefer_active: bool = True
     superseded_penalty: float = 0.3
+    # Demotion or exclusion: with this on, a superseded chunk is dropped in the
+    # retrieval SQL whenever the caller can see an active version of the same
+    # document — it never reaches context, rather than reaching it demoted. Off,
+    # the penalty above applies instead. The trade: exclusion closes the measured
+    # case of stale text in a small persona's context window; demotion keeps
+    # "what did the old policy say?" answerable. Pick per deployment.
+    superseded_exclude: bool = False
 
     # Phase 5 gateway
     registry_file: str = "policy/models.yaml"

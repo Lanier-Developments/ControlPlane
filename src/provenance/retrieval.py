@@ -23,9 +23,25 @@ SELECT_COLS = """
     d.title, d.department, d.classification, d.status
 """
 
+# SUPERSEDED_EXCLUDE=1 turns version demotion into exclusion, enforced in the
+# retrieval SQL for the same reason permissions are: a Python post-filter is a
+# filter someone can forget. The EXISTS runs on the RLS connection, so "an active
+# version exists" means one this caller can see — a superseded version whose
+# successor the caller cannot read is served, never traded for nothing. It is
+# also a stronger condition than the score penalty below, which fires only when
+# the active version happens to be a candidate for the same query.
+EXCLUDE_SUPERSEDED = """NOT (d.status = 'superseded' AND EXISTS (
+    SELECT 1 FROM documents a WHERE a.doc_id = d.doc_id AND a.status = 'active'))"""
+
+
+def _version_filter() -> str:
+    return EXCLUDE_SUPERSEDED if settings.superseded_exclude else "TRUE"
+
+
 VECTOR_SQL = f"""
 SELECT {SELECT_COLS}
 FROM chunks c JOIN documents d ON d.doc_id = c.doc_id AND d.version = c.version
+WHERE {{version_filter}}
 ORDER BY c.embedding <=> %(embedding)s::vector
 LIMIT %(limit)s
 """
@@ -33,7 +49,8 @@ LIMIT %(limit)s
 KEYWORD_SQL = f"""
 SELECT {SELECT_COLS}
 FROM chunks c JOIN documents d ON d.doc_id = c.doc_id AND d.version = c.version
-WHERE to_tsvector('english', c.content) @@ websearch_to_tsquery('english', %(query)s)
+WHERE {{version_filter}}
+  AND to_tsvector('english', c.content) @@ websearch_to_tsquery('english', %(query)s)
 ORDER BY ts_rank_cd(to_tsvector('english', c.content), websearch_to_tsquery('english', %(query)s)) DESC
 LIMIT %(limit)s
 """
@@ -82,9 +99,13 @@ def apply_version_policy(fused: list[Fused]) -> list[Fused]:
     """Demote superseded documents instead of dropping them.
 
     A retired policy is still legitimately retrievable ("what did the old policy say?"),
-    so filtering would be wrong. The penalty applies only when an active version of the
-    same doc_id is also a candidate, so a retired document that is the only version
-    available is never demoted below unrelated noise.
+    so filtering would be wrong — for deployments where that question matters. The
+    penalty applies only when an active version of the same doc_id is also a candidate,
+    so a retired document that is the only version available is never demoted below
+    unrelated noise. The measured limit of demotion: for a persona whose visible set
+    barely exceeds TOP_K, a demoted chunk still lands in context (last, but present).
+    SUPERSEDED_EXCLUDE=1 trades the historical question away for a guarantee instead
+    — see EXCLUDE_SUPERSEDED above, which removes such chunks before this stage runs.
     """
     if not settings.prefer_active:
         return fused
@@ -109,14 +130,17 @@ def search(
     vector = embeddings().embed_query(question)
     fetch_k = settings.fetch_k
 
+    version_filter = _version_filter()
     with app_conn(groups) as conn:
         vector_docs = _to_documents(
-            conn.execute(VECTOR_SQL, {"embedding": str(vector), "limit": fetch_k}).fetchall()
+            conn.execute(VECTOR_SQL.format(version_filter=version_filter),
+                         {"embedding": str(vector), "limit": fetch_k}).fetchall()
         )
         if settings.retrieval_mode == "vector":
             return vector_docs[: settings.top_k]
         keyword_docs = _to_documents(
-            conn.execute(KEYWORD_SQL, {"query": question, "limit": fetch_k}).fetchall()
+            conn.execute(KEYWORD_SQL.format(version_filter=version_filter),
+                         {"query": question, "limit": fetch_k}).fetchall()
         )
 
     fused = reciprocal_rank_fusion(

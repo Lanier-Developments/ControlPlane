@@ -55,6 +55,33 @@ def main() -> int:
         failures += not ok
         print(f"{'PASS' if ok else 'FAIL'}  {user} cannot reach {doc_id} ({label}): {n} chunks")
 
+    # Version exclusion is a SQL clause, so it is testable here the same way RLS is:
+    # against the database, with the expectation computed from the corpus files. With
+    # the filter, a caller gets exactly their visible chunks minus the superseded ones
+    # that have an active successor; without it, everything. The filter runs on the
+    # RLS connection, so "an active successor" means one this caller can see.
+    from .retrieval import EXCLUDE_SUPERSEDED
+
+    for name, groups in [("riley", groups_for("riley")), ("dana", groups_for("dana"))]:
+        with app_conn(groups) as conn:
+            visible = conn.execute("SELECT count(*) FROM chunks").fetchone()[0]
+            shadowed = conn.execute("""
+                SELECT count(*) FROM chunks c
+                JOIN documents d ON d.doc_id = c.doc_id AND d.version = c.version
+                WHERE d.status = 'superseded' AND EXISTS (
+                    SELECT 1 FROM documents a
+                    WHERE a.doc_id = d.doc_id AND a.status = 'active')
+            """).fetchone()[0]
+            filtered = conn.execute(f"""
+                SELECT count(*) FROM chunks c
+                JOIN documents d ON d.doc_id = c.doc_id AND d.version = c.version
+                WHERE {EXCLUDE_SUPERSEDED}
+            """).fetchone()[0]
+        ok = shadowed > 0 and filtered == visible - shadowed
+        failures += not ok
+        print(f"{'PASS' if ok else 'FAIL'}  version exclusion for {name}: "
+              f"{visible} visible - {shadowed} shadowed superseded = {filtered} served")
+
     # Entitlements must not survive the transaction that set them.
     with app_conn(groups_for("dana")) as conn:
         pass

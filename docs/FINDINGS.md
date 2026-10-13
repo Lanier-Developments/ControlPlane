@@ -602,6 +602,74 @@ same 8B model. That is the strongest argument yet in this repo for the prompt
 registry the open items have been carrying — a prompt change is a deployment, and
 deployments get versions and gates.
 
+## 19. Steering, and the ledger as a health record (Oct 13, 2026)
+
+Routing answered "may this model see this content?" but nothing answered "which
+allowed model *should* take this request?" — an unpinned call simply got the
+registry default. A `steering:` section in routing.yaml now decides: the first rule
+matching the request's classification nominates candidates in preference order, and
+each candidate passes the same `evaluate()` as an explicitly requested model.
+Steering prefers, policy permits — and the policy test proves a steering rule
+widened to confidential content still gets the cloud model refused by the deny
+rules. Classification is the only match key, for a measured reason: prompt size,
+the obvious other signal, is nearly constant here (p50 ~1.8K tokens across 1,144
+ledger calls at `TOP_K=8`), so a size threshold would be a rule that never fires.
+
+Three populations are never steered, and the third was found the hard way. A call
+that names a model wins; a measurement wins (evals, red team and judge pin
+`pinned_default()` explicitly, CI pins via `DEFAULT_MODEL` — a baseline must
+measure the model it is filed under); and a demo instance never steers, because
+`check_model(None)` passes the demo guard — an unpinned demo request would have
+steered straight into the paid model the demo's own allowlist refuses by name.
+The ledger records `(steered:<rule-id>)` in the requested_model column, so a
+steered call stays distinguishable from a requested one forever.
+
+Health followed the budget pattern exactly: config declares thresholds, a pure
+function decides, the gateway supplies figures summed from the ledger at decision
+time. Attempts are real invokes — successes plus provider-error rows; cache hits
+and denials moved no provider traffic. Verified live with real failures rather
+than synthetic rows: with AWS credentials broken, two steered calls failed over
+reactively (`provider-error` ×2), the third was steered past Sonnet *before* the
+call (`steering-unhealthy`, counts in the reason), the skip persisted after
+credentials were restored — it reads the ledger, not the last exception — and
+traffic returned by itself once the errors aged out of the window. `make usage`
+reports both mechanisms through the same rows and the same pure functions the
+gateway enforces with, and its first run proved the point by surfacing a true
+state: Sonnet was being skipped at that moment, lift time printed.
+
+Still not done, on purpose: no latency-informed steering, no active probe that
+re-tests a skipped provider early (recovery is window expiry only), and a steered
+call over budget degrades to the policy fallback rather than the next steering
+preference — the same model, in the committed policy.
+
+## 20. A toggle priced from both sides (Oct 13, 2026)
+
+The version-exclusion toggle shipped with two honest gaps written into its own
+close-out: the golden set had no historical question, so what exclusion *costs* was
+unmeasured ("a toggle is the most the evidence supports"), and no version pair
+split its ACLs, so the never-traded-for-nothing property rested on SQL semantics
+rather than a live instance. That sentence is only honest if you then go buy the
+evidence, so the corpus and golden set were extended until both gaps closed.
+
+The price: G45 asks what the *previous* rewards terms charged for a certificate —
+a fact that exists only in superseded `PUB-003 v1`. Under demotion it passes (the
+8B answered "400 points [PUB-003 v1 SUPERSEDED]", citing the old version with its
+tag, which is exactly what a historical question deserves). Under
+`SUPERSEDED_EXCLUDE=1` it fails with a retrieval miss — exactly 1 of 47 checks.
+The default is now demotion *because of a number*, not taste.
+
+The guarantee: HR-013 exists in two versions with different ACLs — v1 (superseded)
+readable by all employees, v2 (active) HR-only. The same exclusion clause provably
+does opposite things by RLS visibility: `make rls-test` asserts v1 is served to
+sam, who cannot see v2, and shadowed for dana, who can; golden items G46/G47 cover
+it end to end, where the model answered sam from v1 ("three business days") and
+dana from v2 ("two") with the demoted v1 sitting in her context.
+
+The transferable lesson: the corpus is part of the test apparatus. When a property
+rests on code semantics, add the document that makes it observable — a synthetic
+corpus you control is exactly the place where every edge case can be made real
+instead of argued.
+
 ## What is still open
 
 
@@ -615,7 +683,8 @@ deployments get versions and gates.
   `judge: true`, both full-tier jobs; the first CI run reproduced the local result
   exactly). It remains advisory and outside the gate; `citation_missing` is still
   the gated failure on that item.
-- **Version demotion is not exclusion** (toggle added Oct 13). A retired document still
+- **Version demotion is not exclusion** (toggle added Oct 13; priced in section 20). A
+  retired document still
   reaches context for the `public` persona, whose nine visible documents nearly fill a
   `TOP_K=8` window — measured: superseded `PUB-003 v1` sat in riley's context on both
   rewards questions, demoted to last place but present, in the prompt and the traces.
@@ -628,7 +697,7 @@ deployments get versions and gates.
   exclusion changes exactly 2 of 44 golden-set retrieval contexts (both `public`
   persona), fails nothing, and `make rls-test` now proves the clause removes exactly
   the shadowed superseded chunks, computed independently per caller. Both of this
-  item's original blind spots closed on Oct 14. The price of exclusion is now
+  item's original blind spots closed on Oct 13. The price of exclusion is now
   measured, not merely suspected: G45 asks what the *previous* rewards terms charged
   for a certificate, passes under demotion (the 8B answered "400 points
   [PUB-003 v1 SUPERSEDED]"), and fails under `SUPERSEDED_EXCLUDE=1` with a retrieval
@@ -662,7 +731,7 @@ deployments get versions and gates.
   document, chunks, ACL rows and retrieval hits disappear on the next ingest, and
   restoring the file brought them back. The evidence ledger keeps its digests of
   past answers that cited the deleted document — the ledger records history, the
-  index serves the present. Change *detection* followed on Oct 14: ingest became
+  index serves the present. Change *detection* followed on Oct 13: ingest became
   incremental (a document whose stored content hash and path match the disk is
   skipped — 70 unchanged documents re-ingest in 0.4s against 3s for a full pass),
   each run records a corpus digest in `ingest_runs` inside the same transaction,
@@ -713,7 +782,7 @@ deployments get versions and gates.
   estimated, which they were. The first exact Bedrock row showed the estimate had
   been undercounting input by roughly a third, which cost attribution — and now
   budget enforcement — inherited.
-- **Routing has one dimension** (steering added Oct 14). Classification decided which
+- **Routing has one dimension** (steering added Oct 13; section 19). Classification decided which
   models were *allowed*; nothing decided which allowed model *should* take a request
   nobody pinned. A `steering:` section in routing.yaml now does: the first matching
   rule nominates candidates in preference order, each candidate passes the same
@@ -728,7 +797,7 @@ deployments get versions and gates.
   own allowlist refuses by name. The match key is classification alone, honestly:
   prompt size, the obvious other signal, is nearly constant here (p50 ~1.8K tokens
   across 1,144 ledger calls at TOP_K=8), so a size threshold would be a rule that
-  never fires. Ledger-informed health followed on Oct 14: a `health:` section under
+  never fires. Ledger-informed health followed on Oct 13: a `health:` section under
   `steering:` skips a nominated candidate whose recent window shows it failing
   (attempts are real invokes — successes plus provider-error rows; cache hits and
   denials are not attempts), logged as `steering-unhealthy` with the counts in the

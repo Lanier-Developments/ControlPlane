@@ -26,7 +26,7 @@ flowchart TD
     subgraph GOV["Governed model access"]
         GW{{"gateway.complete<br/>one choke point"}}
         REG[("policy/models.yaml<br/>registry + ceiling")]
-        RULES[("policy/routing.yaml<br/>routing rules, deny-by-default")]
+        RULES[("policy/routing.yaml<br/>rules, steering, budgets, health<br/>deny-by-default")]
         GW --> REG
         GW --> RULES
     end
@@ -146,7 +146,7 @@ make eval           # retrieval tier over 47 golden items
 make eval-full      # adds answer-quality checks (calls the model; several minutes)
 ```
 
-`make eval` should report 0/44 context leaks and 0 missing sources. `make eval-full` carries two known failures documented in `evals/baseline.yaml` — that's expected, not a broken install.
+`make eval` should report 0/47 context leaks and 0 missing sources. `make eval-full` carries two known failures documented in `evals/baseline.yaml` — that's expected, not a broken install.
 
 ### Use it
 
@@ -154,7 +154,9 @@ make eval-full      # adds answer-quality checks (calls the model; several minut
 make api                                          # console at http://localhost:8000
 make ask Q="How many PTO days do I get?" USER=sam # or the CLI
 make verify                                       # recompute the evidence chain
-make usage                                        # spend and policy decisions, 24h
+make usage                                        # spend, steering, provider health, budgets
+make ingest-check                                 # is the index serving what the source contains?
+make watch                                        # keep it that way: poll and re-ingest on change
 ```
 
 Personas are `sam`, `dana`, `priya`, `riley` and `marcus` — each with different entitlements, listed in `evals/personas.yaml`.
@@ -303,9 +305,9 @@ Measured effect: superseded documents in context went from 10/10 to 0/10 with no
 
 **No retrieval change ships without a comparison.** `make compare` runs both modes over the golden set and prints leaks, retrieval misses, and superseded-in-context counts, plus which items changed. Retrieval tier only, so it is deterministic — no model in the loop.
 
-Tunables in `.env`: `RETRIEVAL_MODE`, `FETCH_K`, `RRF_K`, `VECTOR_WEIGHT`, `KEYWORD_WEIGHT`, `PREFER_ACTIVE`, `SUPERSEDED_PENALTY`.
+Tunables in `.env`: `RETRIEVAL_MODE`, `FETCH_K`, `RRF_K`, `VECTOR_WEIGHT`, `KEYWORD_WEIGHT`, `PREFER_ACTIVE`, `SUPERSEDED_PENALTY`, `SUPERSEDED_EXCLUDE`, `WATCH_INTERVAL_SECONDS`.
 
-Not yet done in Phase 3: a cross-encoder reranker (deliberately deferred — it adds a heavy dependency for gains the fusion may already cover; measure first) and incremental sync driven by source-system change feeds.
+Not yet done in Phase 3: a cross-encoder reranker (deliberately deferred — it adds a heavy dependency for gains the fusion may already cover; measure first). Incremental sync landed Oct 13 as polling (`make watch`, incremental ingest, a recorded corpus digest per run); sync driven by a real source system's change feeds or webhooks remains out, because the corpus is a local directory standing in for a CMS.
 
 ## Permissions (Phase 4)
 
@@ -329,7 +331,7 @@ make eval                                      # leak count should be 0
 
 **ACLs propagate at ingest.** Grants are rewritten on every ingest rather than added to, so a revoked group actually disappears. Chunks above the current count are deleted, so a shortened document leaves no orphans. A document with an empty `acl` is rejected: there is no implicit default.
 
-**Known gaps.** Group membership comes from `evals/personas.yaml` only in `persona` mode, which is development; with `AUTH_MODE=oidc` identity arrives as a verified token on both entry points (see [Authentication](#authentication)) and the persona table refuses to serve. Upstream deletes were one of these gaps until Oct 12: every ingest now reconciles against the disk, deleting any (doc_id, version) the corpus no longer contains — cascading to its chunks and grants — and reporting what it removed. A document deleted at the source stops being retrievable at the next ingest, not at the next `--reset` someone remembers to run; the evidence ledger keeps its digests of past answers that cited it, because the ledger records history while the index serves the present. Since Oct 14 the "next ingest" is continuous: ingest skips documents whose content hash and path match the disk (an unchanged corpus re-ingests in 0.4s), every run records a corpus digest, `make ingest-check` exits non-zero naming any drift between index and disk, and `make watch` polls and re-ingests on change — measured with a 2s interval, a deleted file stopped being served in 0.5s and a restored one was served again in 2.2s.
+**Known gaps.** Group membership comes from `evals/personas.yaml` only in `persona` mode, which is development; with `AUTH_MODE=oidc` identity arrives as a verified token on both entry points (see [Authentication](#authentication)) and the persona table refuses to serve. Upstream deletes were one of these gaps until Oct 12: every ingest now reconciles against the disk, deleting any (doc_id, version) the corpus no longer contains — cascading to its chunks and grants — and reporting what it removed. A document deleted at the source stops being retrievable at the next ingest, not at the next `--reset` someone remembers to run; the evidence ledger keeps its digests of past answers that cited it, because the ledger records history while the index serves the present. Since Oct 13 the "next ingest" is continuous: ingest skips documents whose content hash and path match the disk (an unchanged corpus re-ingests in 0.4s), every run records a corpus digest, `make ingest-check` exits non-zero naming any drift between index and disk, and `make watch` polls and re-ingests on change — measured with a 2s interval, a deleted file stopped being served in 0.5s and a restored one was served again in 2.2s.
 
 ## Authentication
 

@@ -12,7 +12,10 @@ Two modes, chosen by AUTH_MODE:
             For local development, the eval gate and the demo console only.
   oidc      Identity comes from a verified JWT. The body `user` field is
             rejected, `/api/personas` disappears, and the evidence/usage/verify
-            endpoints require the admin group.
+            endpoints require the admin group. The CLI is under the same rule:
+            `resolve_cli_identity` refuses --user and takes the token from
+            $CONTROLPLANE_TOKEN, so there is no entry point left where
+            identity is claimed rather than proven.
 
 Design rules, all of which fail closed:
 
@@ -28,6 +31,7 @@ Design rules, all of which fail closed:
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -164,6 +168,41 @@ def verify_token(token: str) -> Principal:
         raise jwt.InvalidTokenError("sub must be a non-empty string")
     groups, is_admin = groups_from_claims(claims)
     return Principal(subject=subject, groups=tuple(groups), is_admin=is_admin, claims=claims)
+
+
+CLI_TOKEN_ENV = "CONTROLPLANE_TOKEN"
+
+
+def resolve_cli_identity(user: str | None) -> tuple[str | None, list[str] | None]:
+    """Identity for a CLI entry point, honoring AUTH_MODE the way the API does.
+
+    persona mode: the claimed user passes through and groups resolve from the
+    persona table downstream — development only, same trust as the request body.
+    oidc mode: --user is refused, the token comes from $CONTROLPLANE_TOKEN, and
+    the verified subject and groups are returned. Same verifier, same pinned
+    algorithms, same generic failure as /ask: the CLI is not a side door.
+
+    Raises SystemExit rather than returning a weaker identity on any failure.
+    """
+    mode = settings.auth_mode
+    if mode == "persona":
+        return user, None
+    if mode != "oidc":
+        raise SystemExit(f"Unknown AUTH_MODE {mode!r}. Use 'persona' or 'oidc'.")
+    if user is not None:
+        raise SystemExit(
+            "AUTH_MODE=oidc: identity comes from the verified token; --user is not accepted."
+        )
+    token = os.environ.get(CLI_TOKEN_ENV, "")
+    if not token:
+        raise SystemExit(f"AUTH_MODE=oidc: set {CLI_TOKEN_ENV} to a bearer token.")
+    try:
+        principal = verify_token(token)
+    except (jwt.PyJWTError, jwt.PyJWKClientError) as exc:
+        # Operators get the reason in the log; the caller learns only that it failed.
+        log.info("token rejected: %s: %s", type(exc).__name__, exc)
+        raise SystemExit("Authentication failed.") from None
+    return principal.subject, list(principal.groups)
 
 
 def _unauthorized() -> HTTPException:

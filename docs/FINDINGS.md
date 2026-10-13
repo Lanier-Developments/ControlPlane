@@ -617,8 +617,21 @@ deployments get versions and gates.
 - **Version demotion is not exclusion.** A retired document still reaches context for the
   `public` persona, whose nine visible documents nearly fill a `TOP_K=8` window. Answers
   cite the active version regardless, but the mechanism is a ranking penalty, not a filter.
-- **Identity is a stand-in.** Group membership comes from a YAML file rather than an
-  identity provider.
+- **Identity is a stand-in** (fixed Oct 13). Group membership came from a YAML file
+  rather than an identity provider. With `AUTH_MODE=oidc`, identity now comes from a
+  verified bearer JWT on both entry points: the API since Oct 11, and the CLI since
+  Oct 13 — `python -m provenance.chain` refuses `--user`, reads the token from
+  `$CONTROLPLANE_TOKEN`, and runs it through the same verifier with the same pinned
+  algorithms and the same generic failure. The persona table itself raises outside
+  persona mode, so no code path can quietly consult it. Verified live against a
+  locally served JWKS endpoint: an engineering-group token could not retrieve the
+  confidential salary band the same question returned to an hr-comp token, a forged
+  signature got only "Authentication failed.", and the evidence ledger recorded the
+  token subjects and token groups. What remains: the eval and red-team harnesses are
+  persona-mode development tools by design; the CLI consumes a token but has no flow
+  to obtain one, because acquiring tokens is the IdP client's job; and no production
+  IdP has been exercised — the JWKS path was proven against a locally served key
+  set, not against Okta or Entra.
 - **Deletes upstream are not detected** (fixed Oct 12). A document removed at the
   source stayed indexed — and retrievable, and citable — until someone ran a full
   `--reset`. Every ingest now reconciles against the disk: a (doc_id, version) no

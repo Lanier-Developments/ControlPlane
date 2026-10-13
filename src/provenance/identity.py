@@ -23,6 +23,13 @@ def _table() -> dict[str, list[str]]:
 
 def groups_for(user: str | None) -> list[str]:
     """Resolve entitlements. An unknown or missing principal gets nothing, not everything."""
+    if settings.auth_mode != "persona":
+        # Once a real identity provider is configured, the stand-in is not a source on
+        # any path — the API hides /api/personas, and this is the same rule for code.
+        raise RuntimeError(
+            f"AUTH_MODE={settings.auth_mode}: the persona table is not an identity "
+            "source; groups must come from a verified token."
+        )
     if not user:
         return []
     table = _table()

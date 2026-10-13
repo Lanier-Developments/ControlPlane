@@ -220,9 +220,14 @@ def ask(
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("question")
-    parser.add_argument("--user", default=None)
+    parser.add_argument("--user", default=None,
+                        help="persona (AUTH_MODE=persona only; in oidc mode identity "
+                             "comes from the $CONTROLPLANE_TOKEN bearer token)")
     args = parser.parse_args()
-    print(json.dumps(ask(args.question, args.user), indent=2))
+    from .auth import resolve_cli_identity
+
+    user, verified_groups = resolve_cli_identity(args.user)
+    print(json.dumps(ask(args.question, user, verified_groups=verified_groups), indent=2))
 
 
 if __name__ == "__main__":

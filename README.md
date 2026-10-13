@@ -329,23 +329,25 @@ make eval                                      # leak count should be 0
 
 **ACLs propagate at ingest.** Grants are rewritten on every ingest rather than added to, so a revoked group actually disappears. Chunks above the current count are deleted, so a shortened document leaves no orphans. A document with an empty `acl` is rejected: there is no implicit default.
 
-**Known gaps.** Group membership comes from `evals/personas.yaml`, a stand-in for an identity provider; Phase 5 replaces the source without touching retrieval. Upstream deletes were one of these gaps until Oct 12: every ingest now reconciles against the disk, deleting any (doc_id, version) the corpus no longer contains — cascading to its chunks and grants — and reporting what it removed. A document deleted at the source stops being retrievable at the next ingest, not at the next `--reset` someone remembers to run; the evidence ledger keeps its digests of past answers that cited it, because the ledger records history while the index serves the present.
+**Known gaps.** Group membership comes from `evals/personas.yaml` only in `persona` mode, which is development; with `AUTH_MODE=oidc` identity arrives as a verified token on both entry points (see [Authentication](#authentication)) and the persona table refuses to serve. Upstream deletes were one of these gaps until Oct 12: every ingest now reconciles against the disk, deleting any (doc_id, version) the corpus no longer contains — cascading to its chunks and grants — and reporting what it removed. A document deleted at the source stops being retrievable at the next ingest, not at the next `--reset` someone remembers to run; the evidence ledger keeps its digests of past answers that cited it, because the ledger records history while the index serves the present.
 
 ## Authentication
 
 ```
-make auth-test     # forged, expired, wrong-audience, alg-none and key-confusion tokens; no DB or model needed
+make auth-test     # forged, expired, wrong-audience, alg-none and key-confusion tokens, against the API and the CLI; no DB or model needed
 ```
 
 Row-level security enforces the groups it is given. Authentication is what makes those groups trustworthy. With `AUTH_MODE=oidc` the caller's identity comes from a bearer JWT issued by an OIDC identity provider, verified in `src/provenance/auth.py`, and the request body can no longer name a user.
 
 - **Identity comes from the token, not the body.** `POST /ask` rejects a `user` field in `oidc` mode. The verified subject and group claims go to `app_conn()` as an explicit list, so the persona table is no longer in the path.
+- **The CLI is not a side door.** `python -m provenance.chain` refuses `--user` in `oidc` mode and takes its identity from a `$CONTROLPLANE_TOKEN` bearer token, through the same verifier with the same generic failure. The persona table itself raises outside `persona` mode, so no code path — present or future — can quietly consult it.
 - **Only asymmetric algorithms, pinned in config.** The token's `alg` header never picks the verifier, which closes `alg: none` and RS256-to-HS256 key confusion. `exp`, `iat`, `iss`, `aud` and `sub` are required.
 - **Fail closed.** Any verification failure is a 401 with a generic body (the reason goes to the log). A missing groups claim means no groups, which means no rows. An unknown `AUTH_MODE` or a symmetric algorithm in config stops the service at startup.
 - **The admin plane is separate.** `/api/evidence`, `/api/usage` and `/api/verify` read through the owner connection, which RLS does not constrain, so they require the `OIDC_ADMIN_GROUP` claim. `/api/personas` returns 404.
 - **`persona` mode remains the default** for local development, the eval gate and the demo console, and logs a warning at startup. Do not expose an instance in that mode.
+- **The suite gates every PR.** The `auth` job in `eval-gate.yml` runs it on each pull request — it needs no database and no model, which is exactly the profile of a check nobody is tempted to skip.
 
-Not done: JWKS discovery from the issuer URL (the JWKS URL is explicit), token revocation beyond short expiry, and recording the token's `jti` in the evidence ledger.
+Not done: JWKS discovery from the issuer URL (the JWKS URL is explicit), token revocation beyond short expiry, recording the token's `jti` in the evidence ledger, and obtaining a token for the CLI — it consumes one from the environment; the device-code or client-credentials flow that acquires it belongs to the IdP's client, not here.
 
 ## Governed model access (Phase 5)
 

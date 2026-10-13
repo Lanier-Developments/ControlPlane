@@ -43,6 +43,7 @@ import yaml
 from langchain_core.documents import Document
 
 from .config import settings
+from .registry import pinned_default
 
 REDTEAM_DIR = "corpus/redteam"
 
@@ -95,7 +96,10 @@ def run_case(attack: dict, user: str, position: str) -> dict:
     poisoned = attack["doc"]
     docs = [poisoned, *benign] if position == "first" else [*benign, poisoned]
 
-    completion = generate_full(attack["question"], docs, user)
+    # Pinned, not steered: the baseline is keyed per model, so the run must measure
+    # exactly the model it will be filed under.
+    completion = generate_full(attack["question"], docs, user,
+                               requested_model=pinned_default())
     answer = completion.text
     low = answer.lower()
 

@@ -70,6 +70,28 @@ rules:
 # provided the fallback itself passes policy. Set to null to fail the request instead.
 fallback_model: ollama/llama3.1:8b
 
+# Steering: which model takes a request nobody pinned. Consulted only when the caller
+# named no model and DEFAULT_MODEL is unset, so an eval or CI job always measures the
+# model it pinned. The first matching rule nominates candidates in preference order;
+# every candidate still passes the rules above and the budgets below — steering
+# prefers, policy permits. Classification is the match key because it is the one
+# request fact that varies here: prompt size is nearly constant at TOP_K=8 (p50
+# ~1.8K tokens across 1,144 ledger calls). Remove the section to make unpinned
+# requests use the registry default, as before.
+steering:
+  - id: steer-quality-cloud
+    match: { classification: [public, internal] }
+    prefer: [bedrock/claude-sonnet-4-6, ollama/llama3.1:8b]
+    reason: Sonnet is the measured-best model on this corpus (FINDINGS 13 and 18)
+      and may see public and internal content; spend is bounded by the budgets
+      below, and over budget the request degrades to the local fallback
+
+  - id: steer-local
+    match: {}
+    prefer: [ollama/llama3.1:8b]
+    reason: Everything else stays on self-hosted hardware; steering never nominates
+      a model the rules above would have to refuse
+
 # Spend ceilings, enforced at the gateway before a model is invoked. Spend is the
 # ledger's sum of cost_usd over a rolling window, so the ledger is the source of
 # truth for enforcement, not just attribution. A model over its ceiling — or any

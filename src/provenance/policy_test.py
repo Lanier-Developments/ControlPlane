@@ -19,6 +19,7 @@ from .registry import (
     get_model,
     models,
     resolve,
+    steering_rule,
 )
 
 LOCAL = "ollama/llama3.1:8b"
@@ -164,6 +165,48 @@ def main() -> int:
             verb = "allow" if d is None else "DENY "
             print(f"  {'PASS' if ok else 'FAIL'}  {verb} {model.id:28}"
                   f" [{got_rule or '-'}] — {why}")
+
+    # Steering is policy too: which model takes a request nobody pinned. The matched
+    # rule's candidates run through the same evaluate() the gateway uses, so this
+    # states exactly what an unpinned request of each classification gets today and
+    # fails when a policy edit changes that silently.
+    print("\nSteering (unpinned requests):")
+
+    def first_allowed(rule, classification):
+        for mid in (rule or {}).get("prefer", []):
+            if evaluate(get_model(mid), classification).allowed:
+                return mid
+        return None
+
+    steer_expect = {
+        "public": ("steer-quality-cloud", CLOUD),
+        "internal": ("steer-quality-cloud", CLOUD),
+        "confidential": ("steer-local", LOCAL),
+        "restricted": ("steer-local", LOCAL),
+    }
+    for classification, (want_rule, want_model) in steer_expect.items():
+        rule = steering_rule(classification)
+        got_rule = rule["id"] if rule else None
+        try:
+            picked = first_allowed(rule, classification)
+        except RegistryError as exc:
+            picked = None
+            print(f"  FAIL  steering nominates a model not in the registry: {exc}")
+        ok = got_rule == want_rule and picked == want_model
+        failures += not ok
+        print(f"  {'PASS' if ok else 'FAIL'}  {classification:13} -> {picked} [{got_rule}]")
+
+    # Defense in depth, same pattern as the classification rules: if a future edit
+    # widens steer-quality-cloud to sensitive content, the nominated cloud model is
+    # still refused by the rules and the local candidate wins — steering prefers,
+    # policy permits.
+    cloud_rule = steering_rule("public")
+    for classification in ("confidential", "restricted"):
+        picked = first_allowed(cloud_rule, classification)
+        ok = picked == LOCAL
+        failures += not ok
+        print(f"  {'PASS' if ok else 'FAIL'}  {classification:13} under {cloud_rule['id']}"
+              f" -> {picked} — a widened steering match cannot override the rules")
 
     # Every registry entry must declare a classification the ordering knows about.
     for model in models().values():

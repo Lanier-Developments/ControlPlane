@@ -26,6 +26,7 @@ from .registry import (
     get_model,
     max_classification,
     resolve,
+    steering_rule,
 )
 
 
@@ -228,9 +229,17 @@ def complete(
     classification = max_classification(classifications or [])
     requested_id = requested_model or settings.default_model or None
 
-    decision, fallback = resolve(classification, groups, requested_id)
-    decisions = [d for d in (decision, fallback) if d]
-    chosen = fallback if (fallback and fallback.allowed) else decision
+    # Proactive steering: only a request nobody pinned is steered — the caller's
+    # explicit model and the operator's DEFAULT_MODEL override both win, so a
+    # measurement always measures the model it named. The matched rule nominates
+    # candidates in preference order, and each one still passes the same policy
+    # evaluation as a requested model: steering prefers, policy permits. A demo
+    # instance never steers — it serves only what it is willing to pay for, and
+    # steering could nominate a model the demo's own allowlist would refuse.
+    steered = None
+    if requested_id is None and not settings.demo_mode:
+        steered = steering_rule(classification)
+    requested_label = requested_id or (f"(steered:{steered['id']})" if steered else "(default)")
 
     def log(model_id, cache_hit, pt, ct, cost, latency, dec, exact=None):
         # prompt_ref is the registered prompt that shaped this call (id@version#sha8,
@@ -239,7 +248,7 @@ def complete(
             call_id=str(uuid.uuid4()),
             correlation_id=correlation_id,
             principal=principal,
-            requested_model=requested_id or "(default)",
+            requested_model=requested_label,
             resolved_model=model_id,
             classification=classification,
             decision="allow" if dec.allowed else "deny",
@@ -254,10 +263,30 @@ def complete(
             prompt_ref=prompt_ref,
         )
 
-    # Record the refusal before anything else runs. A denial with no record is
-    # indistinguishable from a policy that was never evaluated.
-    if not decision.allowed:
-        log(decision.model.id if decision.model else None, False, None, None, None, None, decision)
+    decisions: list[Decision] = []
+    chosen = None
+    if steered:
+        for candidate_id in steered["prefer"]:
+            d = evaluate(get_model(candidate_id), classification, groups)
+            decisions.append(d)
+            if d.allowed:
+                chosen = d
+                break
+            # A nominated model the rules refuse is recorded like any other denial.
+            log(d.model.id if d.model else None, False, None, None, None, None, d)
+
+    if chosen is None:
+        # Unsteered, or every nominated candidate was refused: the requested/default
+        # path, with the policy fallback on a denial, exactly as before steering.
+        decision, fallback = resolve(classification, groups, requested_id)
+        decisions += [d for d in (decision, fallback) if d]
+        chosen = fallback if (fallback and fallback.allowed) else decision
+
+        # Record the refusal before anything else runs. A denial with no record is
+        # indistinguishable from a policy that was never evaluated.
+        if not decision.allowed:
+            log(decision.model.id if decision.model else None,
+                False, None, None, None, None, decision)
 
     if not chosen.allowed:
         raise PolicyDenied(
@@ -268,6 +297,8 @@ def complete(
     # window spend reached a ceiling. The denial is logged and the request degrades
     # to the fallback — same shape as a classification denial, and for the same
     # reason: refusing the request punishes the user for the model's spending.
+    # A steered choice over budget degrades to the policy fallback too, not to the
+    # next steering preference; in the committed policy they are the same model.
     over = _budget_denial(chosen.model, principal)
     if over:
         decisions.append(over)

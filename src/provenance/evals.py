@@ -128,6 +128,7 @@ def routing_of(completion) -> dict:
 
 def score_item(item: dict, groups: list[str], tier: str, judge: bool = False) -> dict:
     from .chain import generate_full, retrieve
+    from .registry import pinned_default
 
     docs = retrieve(item["question"], user=item["persona"])
     retrieved: dict[str, dict] = {}
@@ -157,7 +158,10 @@ def score_item(item: dict, groups: list[str], tier: str, judge: bool = False) ->
     answer = None
     routing = None
     if tier == "full":
-        completion = generate_full(item["question"], docs, item["persona"])
+        # Pinned, not steered: an eval measures a named model, so the configured
+        # default is passed explicitly and the steering section never applies.
+        completion = generate_full(item["question"], docs, item["persona"],
+                                   requested_model=pinned_default())
         answer = completion.text
         routing = routing_of(completion)
         low = answer.lower()

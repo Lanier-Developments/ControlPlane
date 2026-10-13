@@ -72,6 +72,7 @@ def judge_claim(
     full_answer: str | None = None,
 ) -> dict:
     from .gateway import complete
+    from .registry import pinned_default
 
     # The full answer is supplied as background because a conclusion sentence often
     # depends on the one before it ("...falls between $25,001 and $100,000. Therefore
@@ -112,7 +113,7 @@ def judge_claim(
         system=JUDGE_SYSTEM,
         classifications=["restricted"],  # conservative: judge stays on local inference
         principal=principal,
-        requested_model=settings.judge_model or None,
+        requested_model=settings.judge_model or pinned_default(),
         prompt_ref=JUDGE_PROMPT.ref,
     )
     text = completion.text.strip()

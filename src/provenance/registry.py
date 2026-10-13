@@ -166,6 +166,29 @@ def fallback_model_id() -> str | None:
     return _policy().get("fallback_model")
 
 
+def pinned_default() -> str:
+    """The model a measurement measures when none is named: the operator's
+    DEFAULT_MODEL override, else the registry default. Evals, the red team and the
+    judge pin this explicitly, so steering never changes what a measurement measured.
+    """
+    return settings.default_model or default_model_id()
+
+
+def steering_rule(classification: str) -> dict | None:
+    """The first steering rule matching this request, or None when none is configured.
+
+    Steering matches request facts — today only classification, because it is the one
+    request fact that varies here (prompt size is nearly constant at TOP_K=8). A list
+    value is any-of, like a routing match. Pure policy lookup: whether an instance
+    steers at all is the gateway's call (a demo instance never does).
+    """
+    for rule in _policy().get("steering") or []:
+        want = (rule.get("match") or {}).get("classification")
+        if want is None or classification in (want if isinstance(want, list) else [want]):
+            return rule
+    return None
+
+
 def budgets() -> dict:
     return _policy().get("budgets") or {}
 

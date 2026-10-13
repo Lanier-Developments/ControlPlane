@@ -694,13 +694,26 @@ deployments get versions and gates.
   estimated, which they were. The first exact Bedrock row showed the estimate had
   been undercounting input by roughly a third, which cost attribution — and now
   budget enforcement — inherited.
-- **Routing has one dimension.** Classification decides the model. A real control plane
-  also routes on cost, latency and capability. Provider-health failover closed on
-  Oct 12: an invoke error is logged as its own decision (`provider-error`) and the
-  request degrades to the fallback through the same policy and budget checks — so the
-  fallback now fires on policy denials, budget ceilings and provider errors alike.
-  What this still is not: proactive routing. The gateway reacts to a failure on the
-  call it was asked to make; it does not steer around a degraded provider in advance.
+- **Routing has one dimension** (steering added Oct 14). Classification decided which
+  models were *allowed*; nothing decided which allowed model *should* take a request
+  nobody pinned. A `steering:` section in routing.yaml now does: the first matching
+  rule nominates candidates in preference order, each candidate passes the same
+  policy evaluation as a requested model — steering prefers, policy permits — and
+  the ledger's requested_model column records `(steered:<rule-id>)`, so a steered
+  call is distinguishable from a requested one forever. The committed policy sends
+  unpinned public/internal requests to the measured-best model (Sonnet, sections 13
+  and 18), bounded by the budgets section, and everything else local. Steering never
+  touches a measurement: evals, the red team and the judge pin their model
+  explicitly, CI pins via DEFAULT_MODEL, and a demo instance never steers — an
+  unpinned demo request would otherwise have steered into a paid model the demo's
+  own allowlist refuses by name. The match key is classification alone, honestly:
+  prompt size, the obvious other signal, is nearly constant here (p50 ~1.8K tokens
+  across 1,144 ledger calls at TOP_K=8), so a size threshold would be a rule that
+  never fires. What this still is not: steering informed by the ledger. The rules
+  are static preferences; nothing reads measured latency or error rates to steer
+  around a degraded provider in advance, and over budget a steered call degrades to
+  the policy fallback, not to the next steering preference (the same model, in the
+  committed policy).
 - **No data-residency axis** (fixed Oct 12). The registry said which model may see
   which classification, not where inference may physically run — the Bedrock entry's
   own notes flagged its cross-region US profile as "a data-residency question the

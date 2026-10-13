@@ -26,7 +26,7 @@ working today.
 
 | # | Use | Who benefits | Status |
 |---|---|---|---|
-| 1 | Entitled Q&A over internal documents | Employees, support, ops | **Today** (the `web/` app is its front end) |
+| 1 | Entitled Q&A over internal documents | Employees, support, ops | **Today** (the [control-plane-web](https://github.com/Lanier-Developments/control-plane-web) app is its front end) |
 | 2 | Governed LLM steps inside backend workflows | Workflow and platform teams | **Small** to **Build** |
 | 3 | Audit evidence for AI decisions | Compliance, security, auditors | **Today**, with one caveat (see 2) |
 | 4 | One front door for model access and spend | Platform teams, finance | **Today** in code, **Small** in the UI |
@@ -50,8 +50,8 @@ development). `doc_acl` plus RLS scopes the candidate set inside the database. A
 nothing available answers the question. It never says "you lack permission", because that would confirm the
 document exists.
 
-**Front end.** The `web/` app: an Ask view, with routing decisions, retrieved sources and the ledger entry
-beside each answer.
+**Front end.** The [control-plane-web](https://github.com/Lanier-Developments/control-plane-web) app (its
+own repo): an Ask view, with routing decisions, retrieved sources and the ledger entry beside each answer.
 
 **Status.** Today. Real use needs the identity-provider group claim mapped to document ACLs, and a real
 ingest path in place of the synthetic corpus.
@@ -122,7 +122,7 @@ which model ran, why was it allowed, and has this record been touched?
 
 **How ControlPlane fits.** One ledger entry per question answers each part. Refusals are entries too, which
 is how you show the controls fired rather than only that they were configured. `verify` recomputes the whole
-chain, and the Ledger tab in `web/` makes that a button.
+chain, and the Ledger tab in control-plane-web makes that a button.
 
 **Be exact about the claim.** The chain is tamper-evident, not tamper-proof. Anyone who can rewrite the whole
 table in order can forge a consistent chain. To close that, anchor the head hash somewhere the database owner
@@ -243,7 +243,7 @@ understands why permissions must be enforced before retrieval.
 **Scenario.** You want people to try it without it costing money or becoming an open proxy.
 
 **How ControlPlane fits.** Demo mode restricts requests to self-hosted models, can accept only the example
-questions, and rate-limits per client. The `web/` app reads `/api/demo` and renders those limits honestly:
+questions, and rate-limits per client. The control-plane-web app reads `/api/demo` and renders those limits honestly:
 a locked question box, disabled cloud models and a banner.
 
 **Status.** Today. Put real rate limiting at the edge for anything beyond a single instance.
@@ -256,7 +256,7 @@ a locked question box, disabled cloud models and a banner.
 |---|---|---|
 | 1 | `POST /v1/complete` over `gateway.complete()`, with required classification and correlation id | Use 2 |
 | 2 | Ledger option to store an input digest in place of question text | Use 2 with sensitive prompts |
-| 3 | Extend `/api/usage` with budgets, steering and provider health, and show them in `web/` | Use 4 |
+| 3 | Extend `/api/usage` with budgets, steering and provider health, and show them in control-plane-web | Use 4 |
 | 4 | Signed ledger checkpoints and a range export | Use 3 for external auditors |
 | 5 | Packaged assessment kit | Use 9 |
 | 6 | Tool-call governance design | Use 8 |

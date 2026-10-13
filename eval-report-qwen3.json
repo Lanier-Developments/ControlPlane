@@ -1,0 +1,886 @@
+[
+  {
+    "id": "G01",
+    "persona": "sam",
+    "category": "version-conflict",
+    "retrieved": [
+      "HR-001 v2",
+      "HR-011 v1",
+      "ENG-013 v1",
+      "HR-002 v1",
+      "ENG-004 v1",
+      "HR-010 v2",
+      "HR-005 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "Full-time employees accrue 20 days of paid time off per calendar year [HR-001 v2]."
+  },
+  {
+    "id": "G02",
+    "persona": "priya",
+    "category": "table",
+    "retrieved": [
+      "FIN-003 v3",
+      "FIN-004 v1",
+      "OPS-001 v1",
+      "OPS-005 v1",
+      "HR-001 v2",
+      "PUB-004 v1",
+      "OPS-008 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "The nightly hotel limit for domestic travel is $225 [FIN-003 v3]."
+  },
+  {
+    "id": "G03",
+    "persona": "sam",
+    "category": "factual",
+    "retrieved": [
+      "ENG-008 v2",
+      "ENG-012 v4",
+      "FIN-007 v1",
+      "FIN-002 v1",
+      "OPS-010 v1",
+      "ENG-004 v1",
+      "ENG-002 v2"
+    ],
+    "failed": [],
+    "details": {},
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "If the payments API page isn't acknowledged within 15 minutes, it escalates to the Platform Engineering lead. This is specified in the high error rate alert procedure for the payments API [ENG-012 v4]."
+  },
+  {
+    "id": "G04",
+    "persona": "sam",
+    "category": "permission-denied",
+    "retrieved": [
+      "HR-004 v1",
+      "ENG-004 v1",
+      "PUB-007 v1",
+      "HR-005 v1",
+      "HR-010 v2"
+    ],
+    "failed": [],
+    "details": {},
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "The context provided does not include specific salary bands for engineering roles. Compensation figures for the Engineering Career Ladder are referenced in a restricted salary band document, which is not included in the provided context [HR-004 v1]."
+  },
+  {
+    "id": "G05",
+    "persona": "dana",
+    "category": "permission-allowed",
+    "retrieved": [
+      "HR-007 v1",
+      "HR-004 v1",
+      "PUB-007 v1",
+      "HR-012 v1",
+      "HR-005 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "The salary band for a Senior Engineer II is $148,000 to $182,000 [HR-007 v1]."
+  },
+  {
+    "id": "G06",
+    "persona": "riley",
+    "category": "permission-denied",
+    "retrieved": [
+      "PUB-002 v1",
+      "LEG-004 v2"
+    ],
+    "failed": [],
+    "details": {},
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "I don't know. The provided context does not contain information about rolling back payments API deployments or technical procedures related to API rollbacks."
+  },
+  {
+    "id": "G07",
+    "persona": "sam",
+    "category": "unanswerable",
+    "retrieved": [
+      "OPS-010 v1",
+      "HR-005 v1",
+      "LEG-005 v1",
+      "HR-002 v1",
+      "HR-006 v3",
+      "PUB-007 v1",
+      "PUB-001 v2",
+      "FIN-004 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "The context provided does not specify the details of the 401(k) match. Information about benefits, including retirement plans, is mentioned in PUB-007 v1, but no specific match percentage or amount is stated. \n\n**Answer:** The 401(k) match details are not provided in the available context."
+  },
+  {
+    "id": "G08",
+    "persona": "riley",
+    "category": "factual",
+    "retrieved": [
+      "PUB-001 v2",
+      "PUB-007 v1",
+      "LEG-004 v2",
+      "PUB-006 v1",
+      "PUB-003 v2"
+    ],
+    "failed": [],
+    "details": {},
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "Kestrel Ridge Outfitters was founded in 2009 [PUB-001 v2]."
+  },
+  {
+    "id": "G09",
+    "persona": "priya",
+    "category": "version-conflict",
+    "retrieved": [
+      "HR-001 v2",
+      "PUB-002 v1",
+      "OPS-002 v3",
+      "HR-005 v1",
+      "FIN-004 v1",
+      "HR-011 v1",
+      "OPS-001 v1",
+      "OPS-005 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "Yes, full-time employees may carry over up to 5 unused PTO days into the following year [HR-001 v2]. Carried-over days must be used by March 31 or they are forfeited."
+  },
+  {
+    "id": "G10",
+    "persona": "priya",
+    "category": "table",
+    "retrieved": [
+      "FIN-008 v1",
+      "FIN-002 v1",
+      "PUB-002 v1",
+      "FIN-001 v2",
+      "FIN-003 v3",
+      "OPS-002 v3"
+    ],
+    "failed": [],
+    "details": {},
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "You need an itemized receipt for any single expense over $50 [FIN-003 v3]. This requirement is also explicitly stated in the Expense Report Submission Guide, which clarifies that a credit card summary is not an itemized receipt [FIN-002 v1]."
+  },
+  {
+    "id": "G11",
+    "persona": "sam",
+    "category": "authority-conflict",
+    "retrieved": [
+      "LEG-001 v2",
+      "LEG-004 v2",
+      "ENG-007 v1",
+      "ENG-010 v1",
+      "LEG-003 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "Access and audit logs are retained for **7 years** [LEG-001 v2]. \n\nThis retention period was increased from 2 years in older systems to align with compliance requirements, and systems still enforcing the 2-year period are out of compliance [LEG-001 v2]."
+  },
+  {
+    "id": "G12",
+    "persona": "priya",
+    "category": "authority-conflict",
+    "retrieved": [
+      "LEG-001 v2",
+      "LEG-004 v2",
+      "OPS-004 v2",
+      "OPS-005 v1",
+      "HR-004 v1",
+      "HR-006 v3",
+      "OPS-009 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "If there is a disagreement between an engineering standard and the records retention schedule, the **records retention schedule** takes precedence. This is explicitly stated in [LEG-001 v2], which declares it \"authoritative for how long Kestrel Ridge keeps records\" and specifies that departmental standards must conform to this schedule."
+  },
+  {
+    "id": "G13",
+    "persona": "marcus",
+    "category": "near-duplicate",
+    "retrieved": [
+      "OPS-008 v1",
+      "OPS-009 v1",
+      "PUB-005 v1",
+      "OPS-001 v1",
+      "OPS-003 v1",
+      "OPS-004 v2"
+    ],
+    "failed": [],
+    "details": {},
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "Store 27 in Boulder does not follow the standard store hours. It operates under mall hours: Monday to Saturday 10:00 AM to 9:00 PM, Sunday 11:00 AM to 6:00 PM [OPS-008 v1]. This is one of the nine recorded mall-hours exceptions [OPS-001 v1]."
+  },
+  {
+    "id": "G14",
+    "persona": "marcus",
+    "category": "near-duplicate",
+    "retrieved": [
+      "OPS-009 v1",
+      "PUB-005 v1",
+      "OPS-008 v1",
+      "OPS-003 v1",
+      "OPS-001 v1",
+      "HR-011 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "The ski and snowboard service bench at the Bozeman store operates Wednesday through Sunday [OPS-009 v1]."
+  },
+  {
+    "id": "G15",
+    "persona": "riley",
+    "category": "audience-split",
+    "retrieved": [
+      "PUB-002 v1",
+      "PUB-006 v1",
+      "PUB-003 v2",
+      "PUB-004 v1",
+      "LEG-004 v2"
+    ],
+    "failed": [],
+    "details": {},
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "Most items can be returned within 90 days [PUB-002 v1]. Footwear worn outdoors has a 30-day window for one exchange [PUB-002 v1]. Climbing and safety gear must be unopened and have a 30-day return period [PUB-002 v1]. Nutrition and consumables have a 90-day return window for unopened items [PUB-002 v1]. Final sale and clearance items cannot be returned [PUB-002 v1]."
+  },
+  {
+    "id": "G16",
+    "persona": "marcus",
+    "category": "audience-split",
+    "retrieved": [
+      "OPS-002 v3",
+      "FIN-001 v2",
+      "FIN-002 v1",
+      "PUB-002 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "A return without proof of purchase requires manager approval if the value is above $500 [OPS-002 v3]."
+  },
+  {
+    "id": "G17",
+    "persona": "dana",
+    "category": "version-conflict",
+    "retrieved": [
+      "HR-010 v2",
+      "HR-001 v2",
+      "HR-002 v1",
+      "HR-005 v1",
+      "PUB-007 v1",
+      "HR-007 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "A full-time employee can claim up to **$6,000 per calendar year** for tuition reimbursement [HR-010 v2]."
+  },
+  {
+    "id": "G18",
+    "persona": "priya",
+    "category": "version-conflict",
+    "retrieved": [
+      "FIN-001 v2",
+      "LEG-003 v1",
+      "FIN-009 v1",
+      "OPS-002 v3",
+      "FIN-002 v1",
+      "FIN-006 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "The approver for a purchase with a total commitment of $60,000 is the Vice President [FIN-001 v2]."
+  },
+  {
+    "id": "G19",
+    "persona": "sam",
+    "category": "version-conflict",
+    "retrieved": [
+      "ENG-002 v2",
+      "HR-006 v3",
+      "OPS-010 v1",
+      "LEG-003 v1",
+      "ENG-011 v1",
+      "ENG-008 v2",
+      "LEG-005 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "Anyone may declare an incident [ENG-002 v2]. Declaring and being wrong carries no penalty. Not declaring because you were unsure is the failure mode this policy is written against."
+  },
+  {
+    "id": "G20",
+    "persona": "marcus",
+    "category": "version-conflict",
+    "retrieved": [
+      "OPS-004 v2",
+      "OPS-005 v1",
+      "OPS-003 v1",
+      "OPS-001 v1",
+      "OPS-009 v1",
+      "HR-001 v2"
+    ],
+    "failed": [],
+    "details": {},
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "Associates clock out after closing tasks are complete, not at the posted closing hour [OPS-004 v2]."
+  },
+  {
+    "id": "G21",
+    "persona": "riley",
+    "category": "version-conflict",
+    "retrieved": [
+      "PUB-003 v2",
+      "PUB-002 v1",
+      "PUB-006 v1",
+      "LEG-004 v2",
+      "PUB-003 v1"
+    ],
+    "failed": [],
+    "details": {
+      "superseded_in_context": [
+        "PUB-003 v1"
+      ]
+    },
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "Your rewards points expire after 24 months of account inactivity [PUB-003 v2]. Any purchase resets the expiration clock."
+  },
+  {
+    "id": "G22",
+    "persona": "sam",
+    "category": "version-conflict",
+    "retrieved": [
+      "ENG-006 v2",
+      "PUB-006 v1",
+      "ENG-001 v3",
+      "HR-005 v1",
+      "ENG-011 v1",
+      "FIN-004 v1",
+      "FIN-001 v2"
+    ],
+    "failed": [],
+    "details": {},
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "The maximum age for a service-to-service token is 30 days [ENG-006 v2]."
+  },
+  {
+    "id": "G23",
+    "persona": "priya",
+    "category": "permission-denied",
+    "retrieved": [
+      "PUB-002 v1",
+      "FIN-007 v1",
+      "FIN-002 v1",
+      "OPS-002 v3",
+      "LEG-004 v2",
+      "FIN-004 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "The context provided does not contain information about commands related to rolling back the payments API."
+  },
+  {
+    "id": "G24",
+    "persona": "marcus",
+    "category": "permission-denied",
+    "retrieved": [
+      "PUB-007 v1",
+      "FIN-008 v1",
+      "HR-011 v1",
+      "HR-005 v1",
+      "OPS-009 v1",
+      "OPS-003 v1",
+      "OPS-008 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "The salary range for a Store Operations Manager is communicated during the first conversation about the role [PUB-007 v1]. However, the specific salary band or numerical range is not provided in the context."
+  },
+  {
+    "id": "G25",
+    "persona": "sam",
+    "category": "permission-denied",
+    "retrieved": [
+      "OPS-010 v1",
+      "OPS-003 v1",
+      "OPS-004 v2",
+      "FIN-008 v1",
+      "ENG-002 v2"
+    ],
+    "failed": [],
+    "details": {},
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "The context provided does not specify a required time frame (in seconds) for associates to greet customers as a theft deterrent. No document mentions such a requirement. \n\nDon't know."
+  },
+  {
+    "id": "G26",
+    "persona": "dana",
+    "category": "permission-denied",
+    "retrieved": [
+      "HR-012 v1",
+      "HR-007 v1",
+      "FIN-005 v1",
+      "HR-010 v2",
+      "FIN-009 v1",
+      "HR-004 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "The context provided does not specify the FY2026 budget for the engineering department. The only budget-related information refers to merit budget percentages (3.2% for corporate and 3.8% for retail) and does not break down department-specific allocations. \n\nDon\u2019t know [HR-012 v1]."
+  },
+  {
+    "id": "G27",
+    "persona": "sam",
+    "category": "permission-denied",
+    "retrieved": [
+      "LEG-003 v1",
+      "HR-006 v3",
+      "LEG-005 v1",
+      "ENG-007 v1",
+      "PUB-006 v1",
+      "LEG-001 v2",
+      "OPS-008 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "The context provided does not mention \"Cascade Freight\" or any legal hold related to it. Therefore, I don't know."
+  },
+  {
+    "id": "G28",
+    "persona": "riley",
+    "category": "permission-denied",
+    "retrieved": [
+      "LEG-004 v2",
+      "PUB-006 v1",
+      "PUB-008 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "The context provided does not contain information about the company's current litigation reserves. \n\n**Answer:**  \nI don't know [NO CONTEXT]."
+  },
+  {
+    "id": "G29",
+    "persona": "marcus",
+    "category": "permission-denied",
+    "retrieved": [
+      "OPS-008 v1",
+      "OPS-007 v1",
+      "HR-006 v3",
+      "OPS-004 v2",
+      "OPS-009 v1",
+      "OPS-010 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "The context provided does not specify the findings of a workplace investigation at Store 27. While HR-006 v3 mentions that violations are handled case by case and findings are documented in an investigation record [HR-006 v3], no details about Store 27's specific investigation findings are included in the provided documents. \n\n**Answer:**  \nThe findings of the Store 27 workplace investigation are not specified in the provided context. [HR-006 v3]"
+  },
+  {
+    "id": "G30",
+    "persona": "marcus",
+    "category": "permission-allowed",
+    "retrieved": [
+      "OPS-007 v1",
+      "LEG-005 v1",
+      "OPS-010 v1",
+      "OPS-004 v2",
+      "OPS-003 v1",
+      "HR-006 v3"
+    ],
+    "failed": [
+      "answer_missing_fact"
+    ],
+    "details": {
+      "missing_facts": [
+        "not pursue"
+      ]
+    },
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "An associate should **observe, document, and report** the incident without pursuing, detaining, or physically intervening. This is explicitly stated in the loss prevention guidelines to avoid compromising safety or risking wrongful detention claims.  \n\nThe specific documented signals (e.g., repeated visits without purchase, large-bag entries) should be noted, but no single signal alone is evidence. If multiple signals are present, the associate must document the observation and follow the reporting protocol.  \n\n[OPS-007 v1]"
+  },
+  {
+    "id": "G31",
+    "persona": "priya",
+    "category": "permission-allowed",
+    "retrieved": [
+      "FIN-006 v1",
+      "FIN-005 v1",
+      "HR-010 v2",
+      "FIN-009 v1",
+      "FIN-010 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "The FY2026 budget for the engineering department is $18,400,000 [FIN-006 v1]."
+  },
+  {
+    "id": "G32",
+    "persona": "sam",
+    "category": "permission-allowed",
+    "retrieved": [
+      "ENG-007 v1",
+      "FIN-002 v1",
+      "HR-003 v2",
+      "ENG-008 v2",
+      "FIN-005 v1",
+      "HR-006 v3"
+    ],
+    "failed": [],
+    "details": {},
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "A production access account that isn't confirmed during the quarterly review is disabled automatically after 10 business days of the review opening, including service accounts [ENG-007 v1]."
+  },
+  {
+    "id": "G33",
+    "persona": "priya",
+    "category": "table",
+    "retrieved": [
+      "FIN-004 v1",
+      "FIN-003 v3",
+      "FIN-008 v1",
+      "OPS-002 v3",
+      "FIN-001 v2",
+      "LEG-003 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "The single transaction limit on a travel corporate card is $7,500 [FIN-004 v1]."
+  },
+  {
+    "id": "G34",
+    "persona": "sam",
+    "category": "table",
+    "retrieved": [
+      "HR-005 v1",
+      "HR-004 v1",
+      "ENG-004 v1",
+      "PUB-007 v1",
+      "HR-010 v2"
+    ],
+    "failed": [],
+    "details": {},
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "The referral bonus for an engineering hire is $4,000 [HR-005 v1]."
+  },
+  {
+    "id": "G35",
+    "persona": "sam",
+    "category": "table",
+    "retrieved": [
+      "ENG-004 v1",
+      "ENG-013 v1",
+      "HR-005 v1",
+      "ENG-001 v3",
+      "HR-002 v1",
+      "HR-001 v2",
+      "PUB-003 v2"
+    ],
+    "failed": [],
+    "details": {},
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "The weekly stipend for Tier 1 primary on-call is $700 [ENG-004 v1]."
+  },
+  {
+    "id": "G36",
+    "persona": "riley",
+    "category": "table",
+    "retrieved": [
+      "PUB-004 v1",
+      "PUB-002 v1",
+      "PUB-005 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "Overnight shipping costs $29.95 [PUB-004 v1]."
+  },
+  {
+    "id": "G37",
+    "persona": "priya",
+    "category": "table",
+    "retrieved": [
+      "FIN-009 v1",
+      "PUB-006 v1",
+      "LEG-001 v2",
+      "HR-003 v2",
+      "FIN-001 v2",
+      "FIN-010 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "Computer hardware is depreciated over 3 years [FIN-009 v1]."
+  },
+  {
+    "id": "G38",
+    "persona": "dana",
+    "category": "factual",
+    "retrieved": [
+      "HR-003 v2",
+      "HR-006 v3",
+      "HR-012 v1",
+      "OPS-005 v1",
+      "HR-008 v2",
+      "FIN-002 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "The performance review self-assessment is due on September 21 [HR-003 v2]."
+  },
+  {
+    "id": "G39",
+    "persona": "sam",
+    "category": "factual",
+    "retrieved": [
+      "ENG-009 v2",
+      "OPS-006 v1",
+      "FIN-004 v1",
+      "OPS-002 v3",
+      "FIN-008 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "You must never replay the movement ledger against a live position [ENG-009 v2]."
+  },
+  {
+    "id": "G40",
+    "persona": "priya",
+    "category": "factual",
+    "retrieved": [
+      "LEG-003 v1",
+      "FIN-001 v2",
+      "OPS-008 v1",
+      "FIN-008 v1",
+      "OPS-009 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "The Chief Executive Officer signs store leases and real estate agreements [LEG-003 v1]."
+  },
+  {
+    "id": "G41",
+    "persona": "riley",
+    "category": "factual",
+    "retrieved": [
+      "PUB-006 v1",
+      "PUB-001 v2",
+      "LEG-004 v2",
+      "PUB-002 v1",
+      "PUB-007 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "The warranty on Kestrel Ridge branded gear lasts for a limited lifetime, covering defects in materials and workmanship for the original owner with proof of purchase [PUB-006 v1]."
+  },
+  {
+    "id": "G42",
+    "persona": "sam",
+    "category": "unanswerable",
+    "retrieved": [
+      "HR-001 v2",
+      "HR-002 v1",
+      "FIN-004 v1",
+      "HR-011 v1",
+      "PUB-007 v1",
+      "FIN-001 v2",
+      "HR-005 v1"
+    ],
+    "failed": [],
+    "details": {},
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "The context provided does not mention any parental leave policy or benefits offered by Kestrel Ridge Outfitters. \n\n**Answer:** Don't know."
+  },
+  {
+    "id": "G43",
+    "persona": "dana",
+    "category": "unanswerable",
+    "retrieved": [
+      "HR-007 v1",
+      "HR-004 v1",
+      "PUB-007 v1",
+      "HR-012 v1",
+      "HR-005 v1",
+      "FIN-001 v2"
+    ],
+    "failed": [],
+    "details": {},
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "The context provided does not include information about the CEO's salary. Salary bands and compensation details are outlined for specific roles like Engineers, Product Managers, and Store Operations Managers, but there is no mention of the CEO's compensation in any of the documents. \n\nAnswer: I don't know."
+  },
+  {
+    "id": "G44",
+    "persona": "riley",
+    "category": "unanswerable",
+    "retrieved": [
+      "PUB-008 v1",
+      "PUB-007 v1",
+      "PUB-001 v2",
+      "PUB-003 v2",
+      "PUB-006 v1",
+      "PUB-003 v1"
+    ],
+    "failed": [],
+    "details": {
+      "superseded_in_context": [
+        "PUB-003 v1"
+      ]
+    },
+    "model": {
+      "requested": "ollama/qwen3:8b",
+      "answered_by": "ollama/qwen3:8b"
+    },
+    "answer": "The employee merchandise discount is mentioned as a benefit but no specific percentage is provided in the context. [PUB-007 v1]"
+  }
+]

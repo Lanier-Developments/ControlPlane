@@ -17,8 +17,26 @@ CREATE TABLE IF NOT EXISTS documents (
     effective_date  date,
     owner           text,
     source_path     text,
+    -- sha256 of the source file's bytes. Ingest skips a document whose stored hash
+    -- and path both match the disk, which is what makes re-ingesting on every
+    -- corpus change cheap enough to do continuously (see provenance/watch.py).
+    content_sha     text,
     ingested_at     timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (doc_id, version)
+);
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS content_sha text;
+
+-- One row per ingest run, appended inside the ingest transaction. The latest row's
+-- corpus_sha is what the index serves; comparing it to a digest of the disk answers
+-- "is the index behind the source?" without touching the corpus tables.
+CREATE TABLE IF NOT EXISTS ingest_runs (
+    run_id        uuid        PRIMARY KEY,
+    finished_at   timestamptz NOT NULL DEFAULT now(),
+    corpus_sha    text        NOT NULL,
+    documents     int         NOT NULL,
+    embedded      int         NOT NULL,
+    unchanged     int         NOT NULL,
+    removed       int         NOT NULL
 );
 
 -- One row per group grant. A chunk is visible only through its document's grants.

@@ -9,8 +9,17 @@ for retention, for legal, or just removed — must stop being retrievable at the
 ingest, not at the next --reset someone remembers to run. The evidence ledger keeps
 its digests of past answers that cited it; the ledger records history, the index
 serves the present.
+
+Ingest is incremental: a document whose stored content hash and path both match the
+disk is skipped, so a run over an unchanged corpus embeds nothing. Each run appends
+a row to ingest_runs with a digest of the whole corpus; `--check` compares that
+digest to the disk and names what drifted, and provenance/watch.py re-ingests
+whenever they differ — which is what turns reconciliation-at-ingest into a stated
+bound on staleness.
 """
 import argparse
+import hashlib
+import sys
 import uuid
 from pathlib import Path
 
@@ -38,8 +47,28 @@ def load_corpus(root: Path) -> list[Document]:
         meta = dict(post.metadata)
         meta["acl"] = list(meta["acl"])
         meta["source_path"] = str(path.relative_to(root))
+        meta["content_sha"] = hashlib.sha256(path.read_bytes()).hexdigest()
         docs.append(Document(page_content=post.content.strip(), metadata=meta))
     return docs
+
+
+def corpus_digest(docs: list[Document]) -> str:
+    """One hash for the state of the whole corpus: every path and its content hash.
+
+    Any added, removed, changed or moved file changes the digest; identical corpora
+    produce identical digests regardless of load order.
+    """
+    lines = sorted(f"{d.metadata['source_path']}\x00{d.metadata['content_sha']}" for d in docs)
+    return hashlib.sha256("\n".join(lines).encode()).hexdigest()
+
+
+def last_ingested() -> tuple[str, str] | None:
+    """(corpus_sha, finished_at) of the most recent ingest run, or None before any."""
+    with owner_conn() as conn:
+        row = conn.execute(
+            "SELECT corpus_sha, finished_at FROM ingest_runs ORDER BY finished_at DESC LIMIT 1"
+        ).fetchone()
+    return (row[0], str(row[1])) if row else None
 
 
 def chunk(doc: Document) -> list[tuple[str, int, str]]:
@@ -60,41 +89,50 @@ def migrate() -> None:
         conn.commit()
 
 
-def main() -> None:
-    ap = argparse.ArgumentParser(description="Ingest the corpus into the owned schema")
-    ap.add_argument("--reset", action="store_true", help="delete all documents first")
-    ap.add_argument("--migrate", action="store_true", help="apply db/schema.sql and exit")
-    args = ap.parse_args()
+def run_ingest(reset: bool = False) -> dict:
+    """One reconciling, incremental ingest. Returns a summary; records the run.
 
-    if args.migrate:
-        migrate()
-        print("Schema applied")
-        return
-
+    A document whose stored content hash and path both match the disk is skipped
+    entirely — no re-embed, no grant rewrite. The run row is written in the same
+    transaction as the corpus changes, so the recorded digest can never describe
+    an index state that was not committed with it.
+    """
     docs = load_corpus(Path(settings.corpus_dir))
     embedder = embeddings()
-    total = 0
+    embedded = unchanged = chunks_written = 0
 
     with owner_conn() as conn:
-        if args.reset:
+        if reset:
             conn.execute("TRUNCATE documents CASCADE")
+
+        stored = {
+            (doc_id, version): (sha, path)
+            for doc_id, version, sha, path in conn.execute(
+                "SELECT doc_id, version, content_sha, source_path FROM documents"
+            ).fetchall()
+        }
 
         for doc in docs:
             m = doc.metadata
+            if stored.get((m["doc_id"], m["version"])) == (m["content_sha"], m["source_path"]):
+                unchanged += 1
+                continue
+            embedded += 1
             conn.execute(
                 """
                 INSERT INTO documents (doc_id, version, title, department, classification,
-                                       status, effective_date, owner, source_path)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                                       status, effective_date, owner, source_path, content_sha)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 ON CONFLICT (doc_id, version) DO UPDATE SET
                     title=EXCLUDED.title, department=EXCLUDED.department,
                     classification=EXCLUDED.classification, status=EXCLUDED.status,
                     effective_date=EXCLUDED.effective_date, owner=EXCLUDED.owner,
-                    source_path=EXCLUDED.source_path, ingested_at=now()
+                    source_path=EXCLUDED.source_path, content_sha=EXCLUDED.content_sha,
+                    ingested_at=now()
                 """,
                 (m["doc_id"], m["version"], m["title"], m["department"], m["classification"],
                  m.get("status", "active"), m.get("effective_date"), m.get("owner"),
-                 m.get("source_path")),
+                 m.get("source_path"), m["content_sha"]),
             )
 
             # Rewrite grants rather than adding to them: a revoked group must disappear.
@@ -122,7 +160,7 @@ def main() -> None:
                     """,
                     (chunk_id, m["doc_id"], m["version"], index, content, str(vector)),
                 )
-            total += len(pieces)
+            chunks_written += len(pieces)
 
         # Reconcile against the disk: what the corpus no longer contains, the index
         # must no longer serve. CASCADE takes the chunks and grants with it.
@@ -138,13 +176,69 @@ def main() -> None:
             """,
             (ids, versions),
         ).fetchall()
+
+        conn.execute(
+            """
+            INSERT INTO ingest_runs (run_id, corpus_sha, documents, embedded, unchanged, removed)
+            VALUES (%s,%s,%s,%s,%s,%s)
+            """,
+            (str(uuid.uuid4()), corpus_digest(docs), len(docs), embedded, unchanged, len(removed)),
+        )
         conn.commit()
 
-    print(f"Ingested {len(docs)} documents as {total} chunks")
-    if removed:
-        gone = ", ".join(f"{doc_id} v{version}" for doc_id, version in sorted(removed))
-        print(f"Removed {len(removed)} no longer in the corpus: {gone}")
+    return {
+        "documents": len(docs), "embedded": embedded, "unchanged": unchanged,
+        "chunks_written": chunks_written, "removed": sorted(removed),
+    }
+
+
+def check() -> int:
+    """Is the index serving what the source contains? 0 yes, 1 no — naming the drift."""
+    docs = load_corpus(Path(settings.corpus_dir))
+    disk = corpus_digest(docs)
+    last = last_ingested()
+    if last and last[0] == disk:
+        print(f"Index matches the source: {len(docs)} documents, last ingest {last[1]}")
+        return 0
+
+    with owner_conn() as conn:
+        indexed = dict(conn.execute("SELECT source_path, content_sha FROM documents").fetchall())
+    on_disk = {d.metadata["source_path"]: d.metadata["content_sha"] for d in docs}
+    added = sorted(set(on_disk) - set(indexed))
+    gone = sorted(set(indexed) - set(on_disk))
+    changed = sorted(p for p in set(on_disk) & set(indexed) if on_disk[p] != indexed[p])
+
+    print("INDEX IS BEHIND THE SOURCE"
+          + ("" if last else " (no ingest run recorded — run `make ingest`)"))
+    for label, paths in (("added", added), ("removed", gone), ("changed", changed)):
+        for p in paths:
+            print(f"  {label}: {p}")
+    return 1
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description="Ingest the corpus into the owned schema")
+    ap.add_argument("--reset", action="store_true", help="delete all documents first")
+    ap.add_argument("--migrate", action="store_true", help="apply db/schema.sql and exit")
+    ap.add_argument("--check", action="store_true",
+                    help="compare the index to the disk and exit non-zero on drift")
+    args = ap.parse_args()
+
+    if args.migrate:
+        migrate()
+        print("Schema applied")
+        return 0
+    if args.check:
+        return check()
+
+    s = run_ingest(reset=args.reset)
+    print(f"Ingested {s['documents']} documents: {s['embedded']} embedded as "
+          f"{s['chunks_written']} chunks, {s['unchanged']} unchanged")
+    if s["removed"]:
+        listed = ", ".join(f"{doc_id} v{version}" for doc_id, version in s["removed"])
+        print(f"Removed {len(s['removed'])} no longer in the corpus: {listed}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

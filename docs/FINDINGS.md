@@ -655,8 +655,20 @@ deployments get versions and gates.
   document, chunks, ACL rows and retrieval hits disappear on the next ingest, and
   restoring the file brought them back. The evidence ledger keeps its digests of
   past answers that cited the deleted document — the ledger records history, the
-  index serves the present. What this still is not: change *detection*. The ingest
-  must run to notice; nothing watches the source for deletions in real time.
+  index serves the present. Change *detection* followed on Oct 14: ingest became
+  incremental (a document whose stored content hash and path match the disk is
+  skipped — 70 unchanged documents re-ingest in 0.4s against 3s for a full pass),
+  each run records a corpus digest in `ingest_runs` inside the same transaction,
+  `ingest --check` compares that digest to the disk and names the drift with a
+  non-zero exit, and `make watch` polls on an interval and re-ingests on mismatch.
+  Measured end to end with a 2s interval: a deleted file stopped being served 0.5s
+  after removal, and was served again 2.2s after restoration (including its one
+  re-embed — the watcher log shows "1 embedded, 69 unchanged"). Staleness is now a
+  stated bound — one poll interval plus one incremental ingest — not "until someone
+  remembers". What this still is not: event-driven. Polling was chosen on purpose
+  (stdlib only, identical on network mounts, an explicit interval someone chose),
+  and the corpus is a local directory standing in for an upstream CMS — detecting
+  deletion in a real source system means webhooks or change feeds, not inotify.
 - **Reports did not record the answering model** (fixed Oct 10). Eval and red team
   reports were keyed by the requested model, while the routing decision lived only in
   `model_calls` — which is how the first Gemini comparison credited Llama's failures to

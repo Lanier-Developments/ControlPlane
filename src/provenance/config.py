@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     gcp_project: str = ""
     gcp_location: str = "us-central1"
 
+    # How often the corpus watcher polls (provenance/watch.py): the stated bound on
+    # how long a source change can go undetected.
+    watch_interval_seconds: float = 2.0
+
     chunk_size: int = 800
     chunk_overlap: int = 100
     top_k: int = 8

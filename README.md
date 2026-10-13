@@ -329,7 +329,7 @@ make eval                                      # leak count should be 0
 
 **ACLs propagate at ingest.** Grants are rewritten on every ingest rather than added to, so a revoked group actually disappears. Chunks above the current count are deleted, so a shortened document leaves no orphans. A document with an empty `acl` is rejected: there is no implicit default.
 
-**Known gaps.** Group membership comes from `evals/personas.yaml` only in `persona` mode, which is development; with `AUTH_MODE=oidc` identity arrives as a verified token on both entry points (see [Authentication](#authentication)) and the persona table refuses to serve. Upstream deletes were one of these gaps until Oct 12: every ingest now reconciles against the disk, deleting any (doc_id, version) the corpus no longer contains — cascading to its chunks and grants — and reporting what it removed. A document deleted at the source stops being retrievable at the next ingest, not at the next `--reset` someone remembers to run; the evidence ledger keeps its digests of past answers that cited it, because the ledger records history while the index serves the present.
+**Known gaps.** Group membership comes from `evals/personas.yaml` only in `persona` mode, which is development; with `AUTH_MODE=oidc` identity arrives as a verified token on both entry points (see [Authentication](#authentication)) and the persona table refuses to serve. Upstream deletes were one of these gaps until Oct 12: every ingest now reconciles against the disk, deleting any (doc_id, version) the corpus no longer contains — cascading to its chunks and grants — and reporting what it removed. A document deleted at the source stops being retrievable at the next ingest, not at the next `--reset` someone remembers to run; the evidence ledger keeps its digests of past answers that cited it, because the ledger records history while the index serves the present. Since Oct 14 the "next ingest" is continuous: ingest skips documents whose content hash and path match the disk (an unchanged corpus re-ingests in 0.4s), every run records a corpus digest, `make ingest-check` exits non-zero naming any drift between index and disk, and `make watch` polls and re-ingests on change — measured with a 2s interval, a deleted file stopped being served in 0.5s and a restored one was served again in 2.2s.
 
 ## Authentication
 
@@ -493,7 +493,7 @@ docs/*.json           preserved eval runs: naive baseline and enforced
 infra/                one-time cloud setup: GitHub OIDC -> Bedrock role, exact and scoped
 .github/workflows/    policy job, repo-meta job, then eval-gate (retrieval blocks,
                       full advisory, red team gated nightly by its baseline)
-src/provenance/       config, db, identity, store, ingest, retrieval, chain, gateway,
-                      registry, evidence, audit, evals, compare, usage,
+src/provenance/       config, db, identity, store, ingest, watch, retrieval, chain,
+                      gateway, registry, evidence, audit, evals, compare, usage,
                       rls_test, policy_test, repo_meta_check, api
 ```

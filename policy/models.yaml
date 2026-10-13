@@ -10,6 +10,9 @@
 # status:          approved | deprecated | retired. Deprecated still answers but
 #                  is logged as such; retired is refused.
 # max_classification: the most sensitive data this model may ever see
+# region:          where inference physically runs — on-prem for self-hosted, else
+#                  the provider region(s) the entry is configured for. Routing rules
+#                  match on it, so residency is policy, not a note.
 # cost_per_1k:     USD per 1000 tokens, used for cost attribution
 
 models:
@@ -17,6 +20,7 @@ models:
     provider: ollama
     model: llama3.1:8b
     tier: local
+    region: on-prem
     status: approved
     max_classification: restricted
     cost_per_1k_input: 0.0
@@ -27,6 +31,7 @@ models:
     provider: ollama
     model: llama3.2:3b
     tier: local
+    region: on-prem
     status: approved
     max_classification: restricted
     cost_per_1k_input: 0.0
@@ -37,6 +42,7 @@ models:
     provider: bedrock
     model: us.anthropic.claude-sonnet-4-6
     tier: cloud
+    region: us
     status: approved
     max_classification: internal
     cost_per_1k_input: 0.003
@@ -46,13 +52,15 @@ models:
       Approved for public and internal content only. Confidential and restricted
       content falls back to self-hosted inference by policy, not by configuration.
       Cross-region inference profile (us. prefix): AWS may route the request to any
-      US region, which is a data-residency question the registry does not yet model.
+      US region — region: us models exactly that, and the routing rules hold cloud
+      inference to US regions.
       Sonnet 5 is gated separately for this account and is not usable here.
 
   - id: ollama/llama2:7b
     provider: ollama
     model: llama2:7b
     tier: local
+    region: on-prem
     status: retired
     max_classification: restricted
     cost_per_1k_input: 0.0
@@ -63,6 +71,7 @@ models:
     provider: ollama
     model: qwen3:8b
     tier: local
+    region: on-prem
     status: approved
     max_classification: restricted
     cost_per_1k_input: 0.0
@@ -73,6 +82,7 @@ models:
     provider: vertex
     model: gemini-2.5-flash
     tier: cloud
+    region: us
     status: approved
     max_classification: internal
     cost_per_1k_input: 0.0003

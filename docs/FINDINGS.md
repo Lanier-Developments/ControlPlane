@@ -673,8 +673,17 @@ deployments get versions and gates.
   fallback now fires on policy denials, budget ceilings and provider errors alike.
   What this still is not: proactive routing. The gateway reacts to a failure on the
   call it was asked to make; it does not steer around a degraded provider in advance.
-- **No data-residency axis.** The registry says which model may see which classification,
-  not where inference may physically run.
+- **No data-residency axis** (fixed Oct 12). The registry said which model may see
+  which classification, not where inference may physically run — the Bedrock entry's
+  own notes flagged its cross-region US profile as "a data-residency question the
+  registry does not yet model." Every entry now states a `region` (the loader
+  refuses one that does not), rules match on it, the cloud allows are scoped to US
+  regions, and a cloud model anywhere else is refused by `residency-us-only` — even
+  for public content. Tested against a synthetic EU-hosted entry, since no non-US
+  model is registered: the rule exists before the day it is needed, which is the
+  same posture as the never-firing classification rules. What this still is not:
+  residency *verification*. The region is registry data, trusted the way the price
+  is; nothing inspects where a provider actually ran the request.
 - **No quotas or budgets** (fixed Oct 12). Cost was attributed after the fact with
   nothing enforcing a ceiling. `policy/routing.yaml` now sets per-model and total
   spend ceilings over a rolling window; the gateway reads spend from the ledger at

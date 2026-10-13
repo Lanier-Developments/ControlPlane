@@ -365,6 +365,8 @@ This is the direct lesson from a prior control-plane build where model selection
 
 **The registry ceiling outranks the rule file.** A model's `max_classification` is checked before any rule runs. A permissive rule cannot grant a model access to data more sensitive than its own registry entry allows — the two have to agree, and the stricter one wins.
 
+**Residency is a match key, not a note.** Every registry entry states where its inference physically runs (`region:` — `on-prem` for self-hosted, the provider region otherwise; the loader refuses an entry without one), and rules match on it: the cloud allows are scoped to `region: [us]`, and a cloud model in any other region is refused by `residency-us-only` with that reason — even for public content, and even though no non-US model is registered yet. The Bedrock entry is the honest case: its `us.` cross-region profile means AWS may run the request in any US region, which is exactly what `region: us` says. `make policy-test` exercises the refusal against a synthetic EU-hosted entry, so the rule is tested before the day it is needed.
+
 **Classification comes from the retrieved context, and the most sensitive chunk governs.** One confidential chunk constrains the whole call, because a prompt is indivisible once it is sent. In practice that means a question Dana asks about salary bands cannot be answered by an external provider, while the same question shape about public content can.
 
 **One choke point.** `gateway.complete()` is the only code in the system that constructs a model client. `chain.llm()` now raises if anything tries to build one directly, because a policy layer that one direct call can bypass is decoration.

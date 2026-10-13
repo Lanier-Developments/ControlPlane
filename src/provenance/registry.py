@@ -40,6 +40,11 @@ class Model:
     max_classification: str
     cost_per_1k_input: float
     cost_per_1k_output: float
+    # Where inference physically runs: on-prem for self-hosted, else the provider
+    # region the entry is configured for. The loader refuses a registry entry that
+    # does not state one — residency is a fact, not an inference — and routing
+    # rules match on it.
+    region: str = ""
     # Some models reject a temperature parameter. Declared in the registry rather than
     # special-cased in code — the whole point is that model quirks are config.
     no_temperature: bool = False
@@ -69,6 +74,9 @@ def _registry() -> tuple[dict[str, Model], str]:
         unknown = entry["max_classification"] not in CLASSIFICATION_ORDER
         if unknown:
             raise RegistryError(f"{entry['id']}: unknown max_classification")
+        if not entry.get("region"):
+            raise RegistryError(f"{entry['id']}: no region. Residency is a fact every "
+                                f"entry must state; on-prem for self-hosted.")
         models[entry["id"]] = Model(**entry)
     default = raw["default_model"]
     if default not in models:
@@ -109,6 +117,11 @@ def _matches(match: dict, facts: dict) -> bool:
         if key == "groups_any":
             if not set(want) & set(facts.get("groups", [])):
                 return False
+        # A list means any-of: `region: [us, on-prem]` matches either. No current
+        # fact is itself a list except groups, which has its own key above.
+        elif isinstance(want, list):
+            if facts.get(key) not in want:
+                return False
         elif facts.get(key) != want:
             return False
     return True
@@ -120,6 +133,7 @@ def evaluate(model: Model, classification: str, groups: list[str] | None = None)
         "classification": classification,
         "tier": model.tier,
         "status": model.status,
+        "region": model.region,
         "groups": groups or [],
     }
 

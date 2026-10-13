@@ -45,7 +45,7 @@ def main() -> int:
 
     print("Registry:")
     for model in models().values():
-        print(f"  {model.id:28} {model.tier:6} {model.status:10} "
+        print(f"  {model.id:28} {model.tier:6} {model.region:8} {model.status:10} "
               f"max={model.max_classification:12} "
               f"${model.cost_per_1k_input}/1k in  ${model.cost_per_1k_output}/1k out")
     print(f"  default: {default_model_id()}\n")
@@ -74,7 +74,7 @@ def main() -> int:
     print("\nClassification rules (synthetic registry entry):")
     permissive_cloud = Model(
         id="cloud/over-permissive", provider="bedrock", model="x", tier="cloud",
-        status="approved", max_classification="restricted",
+        status="approved", max_classification="restricted", region="us",
         cost_per_1k_input=0.0, cost_per_1k_output=0.0,
         notes="Test fixture: a cloud model someone mis-registered as restricted-capable",
     )
@@ -87,6 +87,24 @@ def main() -> int:
         failures += not ok
         print(f"  {'PASS' if ok else 'FAIL'}  DENY  cloud {classification:13}"
               f" [{decision.rule_id}] — rule file catches a mis-registered model")
+
+    # Residency: where inference runs is a match key, so a cloud model in an
+    # unapproved region is refused even for public content — with the residency
+    # reason, not the generic default. Synthetic entry: no non-US cloud model is
+    # registered, and the rule must already be ready for the day one is.
+    print("\nResidency (synthetic registry entry):")
+    eu_cloud = Model(
+        id="cloud/eu-hosted", provider="bedrock", model="x", tier="cloud",
+        status="approved", max_classification="internal", region="eu-central",
+        cost_per_1k_input=0.001, cost_per_1k_output=0.001,
+        notes="Test fixture: an approved provider configured in a non-US region",
+    )
+    for classification in ("public", "internal"):
+        decision = evaluate(eu_cloud, classification)
+        ok = not decision.allowed and decision.rule_id == "residency-us-only"
+        failures += not ok
+        print(f"  {'PASS' if ok else 'FAIL'}  DENY  eu-central cloud {classification:9}"
+              f" [{decision.rule_id}] — residency denies what classification would allow")
 
     # A denied request should fall back to an approved model rather than failing,
     # and the refusal must still be visible in the returned decisions.

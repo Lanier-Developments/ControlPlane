@@ -12,7 +12,10 @@
 #   classification  most sensitive classification in the retrieved context
 #   tier            local | cloud, from the model registry
 #   status          approved | deprecated | retired, from the model registry
+#   region          where inference physically runs, from the model registry
 #   groups_any      caller holds at least one of these groups
+#
+# A list value means any-of: `region: [us]` matches a model whose region is us.
 
 rules:
   - id: retired-model-refused
@@ -41,14 +44,22 @@ rules:
     reason: Deprecated model still approved; migrate before retirement
 
   - id: cloud-public-internal
-    match: { classification: internal, tier: cloud, status: approved }
+    match: { classification: internal, tier: cloud, status: approved, region: [us] }
     decision: allow
-    reason: Internal content is approved for the external provider
+    reason: Internal content is approved for the external provider in US regions
 
   - id: cloud-public
-    match: { classification: public, tier: cloud, status: approved }
+    match: { classification: public, tier: cloud, status: approved, region: [us] }
     decision: allow
-    reason: Public content is approved for the external provider
+    reason: Public content is approved for the external provider in US regions
+
+  # Residency: the cloud allows above are scoped to US regions, so any cloud model
+  # that reaches this rule runs somewhere no rule approves. An explicit deny with
+  # the real reason, rather than letting it fall to the generic default.
+  - id: residency-us-only
+    match: { tier: cloud }
+    decision: deny
+    reason: Inference region is not approved; cloud inference is permitted in US regions only
 
   - id: default-deny
     match: {}

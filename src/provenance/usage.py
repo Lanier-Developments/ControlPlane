@@ -8,7 +8,7 @@ import argparse
 import sys
 
 from .db import owner_conn
-from .registry import budgets, principal_cap
+from .registry import budgets, evaluate_health, get_model, principal_cap, steering_health
 
 
 def main() -> int:
@@ -71,6 +71,60 @@ def main() -> int:
     print("\n| Model | Calls | Cost |\n|---|---|---|")
     for model_id, n, model_cost in by_model:
         print(f"| {model_id} | {n} | ${model_cost:.4f} |")
+
+    # Steering: what took the requests nobody pinned. The rule id travels in the
+    # requested_model column as (steered:<id>), so the ledger answers this directly.
+    with owner_conn() as conn:
+        steered = conn.execute(
+            """
+            SELECT substring(requested_model from 10 for length(requested_model) - 10),
+                   resolved_model, decision, count(*), coalesce(sum(cost_usd), 0)
+            FROM model_calls
+            WHERE occurred_at > now() - make_interval(hours => %s)
+              AND requested_model LIKE '(steered:%%'
+            GROUP BY 1, 2, 3 ORDER BY 4 DESC
+            """,
+            (args.hours,),
+        ).fetchall()
+    if steered:
+        print(f"\n## Steering, last {args.hours}h\n")
+        print("| Rule | Model | Decision | Calls | Cost |\n|---|---|---|---|---|")
+        for rule, model_id, decision, n, s_cost in steered:
+            print(f"| {rule} | {model_id} | {decision} | {n} | ${s_cost:.4f} |")
+
+    # Provider health, over the health window rather than --hours, through the same
+    # evaluate_health the gateway calls: enforcement and report must read the same
+    # number or the report is decoration. Attempts are real invokes — successes plus
+    # provider-error rows; cache hits and denials moved no provider traffic.
+    hcfg = steering_health()
+    if hcfg and hcfg.get("max_error_rate") is not None:
+        window = hcfg.get("window_minutes", 30)
+        with owner_conn() as conn:
+            attempts = conn.execute(
+                """
+                SELECT resolved_model,
+                       count(*) FILTER (WHERE rule_id = 'provider-error'),
+                       count(*),
+                       max(occurred_at) FILTER (WHERE rule_id = 'provider-error')
+                       + make_interval(mins => %s)
+                FROM model_calls
+                WHERE occurred_at > now() - make_interval(mins => %s)
+                  AND ((decision = 'allow' AND NOT cache_hit) OR rule_id = 'provider-error')
+                GROUP BY resolved_model ORDER BY 2 DESC, 3 DESC
+                """,
+                (window, window),
+            ).fetchall()
+        if attempts:
+            print(f"\n## Provider health, rolling {window}m\n")
+            print("| Model | Failed/attempts | State |\n|---|---|---|")
+            for model_id, errors, calls, lifts_by in attempts:
+                try:
+                    skip = evaluate_health(get_model(model_id), errors, calls)
+                except Exception:
+                    continue  # a model no longer in the registry cannot be steered to
+                state = (f"SKIPPED by steering — lifts by {lifts_by:%H:%M:%S} at the latest"
+                         if skip else "ok")
+                print(f"| {model_id} | {errors}/{calls} | {state} |")
 
     # Budget headroom, over the budget window rather than --hours: enforcement and
     # report must read the same number or the report is decoration.

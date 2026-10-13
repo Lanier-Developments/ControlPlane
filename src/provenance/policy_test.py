@@ -8,6 +8,8 @@ The cases that matter most are the refusals.
 """
 import sys
 
+import math
+
 from .registry import (
     CLASSIFICATION_ORDER,
     Model,
@@ -16,9 +18,11 @@ from .registry import (
     default_model_id,
     evaluate,
     evaluate_budget,
+    evaluate_health,
     get_model,
     models,
     resolve,
+    steering_health,
     steering_rule,
 )
 
@@ -195,6 +199,37 @@ def main() -> int:
         ok = got_rule == want_rule and picked == want_model
         failures += not ok
         print(f"  {'PASS' if ok else 'FAIL'}  {classification:13} -> {picked} [{got_rule}]")
+
+    # Health is policy too, and evaluate_health is pure like evaluate_budget: the
+    # attempt counts come from the caller (the gateway sums the ledger), so the skip
+    # decision is testable here. Cases derive from the committed thresholds, so a
+    # config edit moves the inputs with it rather than silently invalidating them.
+    print("\nSteering health (synthetic attempt counts):")
+    hcfg = steering_health()
+    if not hcfg or hcfg.get("max_error_rate") is None:
+        failures += 1
+        print("  FAIL  steering configures no health threshold")
+    else:
+        rate, mc = hcfg["max_error_rate"], hcfg.get("min_calls", 2)
+        trip = max(1, math.ceil(rate * mc))
+        health_cases = [
+            (0, 10 * mc, None, "a clean window is healthy"),
+            (max(mc - 1, 0), max(mc - 1, 0), None,
+             "below min_calls there is no judgment — one failure is an incident, not a pattern"),
+            (trip, mc, "steering-unhealthy",
+             "the configured error rate at min_calls trips the skip"),
+            (mc, mc, "steering-unhealthy", "every attempt failing is skipped"),
+            (trip, 100 * mc, None, "errors diluted by later successes recover"),
+            (0, 0, None, "no attempts, no judgment"),
+        ]
+        for errors, calls, want, why in health_cases:
+            d = evaluate_health(get_model(CLOUD), errors, calls)
+            got = d.rule_id if d else None
+            ok = got == want and (d is None or not d.allowed)
+            failures += not ok
+            verb = "allow" if d is None else "SKIP "
+            print(f"  {'PASS' if ok else 'FAIL'}  {verb} {errors}/{calls} attempts failed"
+                  f" [{got or '-'}] — {why}")
 
     # Defense in depth, same pattern as the classification rules: if a future edit
     # widens steer-quality-cloud to sensitive content, the nominated cloud model is

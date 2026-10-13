@@ -182,10 +182,41 @@ def steering_rule(classification: str) -> dict | None:
     value is any-of, like a routing match. Pure policy lookup: whether an instance
     steers at all is the gateway's call (a demo instance never does).
     """
-    for rule in _policy().get("steering") or []:
+    for rule in (_policy().get("steering") or {}).get("rules") or []:
         want = (rule.get("match") or {}).get("classification")
         if want is None or classification in (want if isinstance(want, list) else [want]):
             return rule
+    return None
+
+
+def steering_health() -> dict:
+    return (_policy().get("steering") or {}).get("health") or {}
+
+
+def evaluate_health(model: Model, errors: int, calls: int) -> Decision | None:
+    """Skip-decision for a steering candidate whose recent failures say it is degraded.
+
+    Pure, like evaluate_budget: the caller supplies the counts (the gateway sums them
+    from the ledger's provider-error rows and successful invokes in the window), so
+    the decision is testable without a database. None means healthy, unconfigured, or
+    not enough attempts to judge — below min_calls one failure is an incident, not a
+    pattern. Health can only skip a preference, never deny a request: an explicitly
+    requested model is never health-checked, and a skipped candidate's traffic goes
+    to the next preference, not nowhere.
+    """
+    cfg = steering_health()
+    threshold = cfg.get("max_error_rate")
+    if threshold is None or calls < cfg.get("min_calls", 2):
+        return None
+    if errors / calls >= threshold:
+        window = cfg.get("window_minutes", 30)
+        return Decision(
+            allowed=False,
+            reason=(f"{model.id} failed {errors} of {calls} attempts in the last "
+                    f"{window}m; steering past it"),
+            rule_id="steering-unhealthy",
+            model=model,
+        )
     return None
 
 

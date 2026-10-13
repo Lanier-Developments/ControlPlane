@@ -26,6 +26,8 @@ from .registry import (
     get_model,
     max_classification,
     resolve,
+    evaluate_health,
+    steering_health,
     steering_rule,
 )
 
@@ -142,6 +144,30 @@ def _budget_denial(model: Model, principal: str | None) -> Decision | None:
     return evaluate_budget(
         model, float(for_model), float(total), principal, float(for_principal)
     )
+
+
+def _health_skip(model: Model) -> Decision | None:
+    """The ledger is the health record too: attempts are successful invokes plus
+    provider-error rows in the window — cache hits moved no provider traffic and
+    policy denials never reached one, so neither counts. One query, only for
+    steering candidates: health prefers around a degraded provider, it does not
+    deny anyone who asked for it by name.
+    """
+    cfg = steering_health()
+    if not cfg:
+        return None
+    with owner_conn() as conn:
+        errors, calls = conn.execute(
+            """
+            SELECT count(*) FILTER (WHERE rule_id = 'provider-error'), count(*)
+            FROM model_calls
+            WHERE resolved_model = %s
+              AND occurred_at > now() - make_interval(mins => %s)
+              AND ((decision = 'allow' AND NOT cache_hit) OR rule_id = 'provider-error')
+            """,
+            (model.id, cfg.get("window_minutes", 30)),
+        ).fetchone()
+    return evaluate_health(model, errors, calls)
 
 
 def _invoke(model: Model, prompt: str, system: str | None) -> tuple[str, dict | None]:
@@ -269,11 +295,20 @@ def complete(
         for candidate_id in steered["prefer"]:
             d = evaluate(get_model(candidate_id), classification, groups)
             decisions.append(d)
-            if d.allowed:
-                chosen = d
-                break
-            # A nominated model the rules refuse is recorded like any other denial.
-            log(d.model.id if d.model else None, False, None, None, None, None, d)
+            if not d.allowed:
+                # A nominated model the rules refuse is recorded like any other denial.
+                log(d.model.id if d.model else None, False, None, None, None, None, d)
+                continue
+            # Health, after policy: a candidate the rules allow is still skipped when
+            # its recent ledger window says it is failing — steer around a degraded
+            # provider before the call rather than failing over after it.
+            unhealthy = _health_skip(d.model)
+            if unhealthy:
+                decisions.append(unhealthy)
+                log(unhealthy.model.id, False, None, None, None, None, unhealthy)
+                continue
+            chosen = d
+            break
 
     if chosen is None:
         # Unsteered, or every nominated candidate was refused: the requested/default

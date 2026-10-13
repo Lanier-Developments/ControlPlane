@@ -721,11 +721,21 @@ deployments get versions and gates.
   own allowlist refuses by name. The match key is classification alone, honestly:
   prompt size, the obvious other signal, is nearly constant here (p50 ~1.8K tokens
   across 1,144 ledger calls at TOP_K=8), so a size threshold would be a rule that
-  never fires. What this still is not: steering informed by the ledger. The rules
-  are static preferences; nothing reads measured latency or error rates to steer
-  around a degraded provider in advance, and over budget a steered call degrades to
-  the policy fallback, not to the next steering preference (the same model, in the
-  committed policy).
+  never fires. Ledger-informed health followed on Oct 14: a `health:` section under
+  `steering:` skips a nominated candidate whose recent window shows it failing
+  (attempts are real invokes — successes plus provider-error rows; cache hits and
+  denials are not attempts), logged as `steering-unhealthy` with the counts in the
+  reason. Health can only skip a preference: an explicitly requested model is never
+  health-checked, and below `min_calls` one failure is an incident, not a pattern.
+  Verified live with real failures: with AWS credentials broken, two steered calls
+  failed over reactively (`provider-error` ×2), the third was steered past Sonnet
+  *before* the call, the skip persisted after credentials were restored — proving
+  it reads the ledger, not the last exception — and traffic returned by itself once
+  the errors aged out of the window. What this still is not: latency-informed
+  steering (nothing reads measured latency to pick a faster candidate), recovery is
+  only window expiry (no active probe re-tests a skipped provider early), and over
+  budget a steered call still degrades to the policy fallback, not to the next
+  steering preference (the same model, in the committed policy).
 - **No data-residency axis** (fixed Oct 12). The registry said which model may see
   which classification, not where inference may physically run — the Bedrock entry's
   own notes flagged its cross-region US profile as "a data-residency question the

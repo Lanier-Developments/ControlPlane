@@ -79,18 +79,32 @@ fallback_model: ollama/llama3.1:8b
 # ~1.8K tokens across 1,144 ledger calls). Remove the section to make unpinned
 # requests use the registry default, as before.
 steering:
-  - id: steer-quality-cloud
-    match: { classification: [public, internal] }
-    prefer: [bedrock/claude-sonnet-4-6, ollama/llama3.1:8b]
-    reason: Sonnet is the measured-best model on this corpus (FINDINGS 13 and 18)
-      and may see public and internal content; spend is bounded by the budgets
-      below, and over budget the request degrades to the local fallback
+  # Health: skip a nominated candidate whose recent ledger window shows it failing,
+  # before the call instead of failing over after it. Attempts are real invokes
+  # (successes plus provider-error rows; cache hits and policy denials are not
+  # attempts), summed from the ledger at decision time like budget spend. Health
+  # can only skip a preference: an explicitly requested model is never
+  # health-checked, and the skip is logged (steering-unhealthy) with the counts.
+  # Recovery is the window sliding: errors age out, the candidate returns. Below
+  # min_calls there is no judgment — one failure is an incident, not a pattern.
+  health:
+    window_minutes: 30
+    max_error_rate: 0.5
+    min_calls: 2
 
-  - id: steer-local
-    match: {}
-    prefer: [ollama/llama3.1:8b]
-    reason: Everything else stays on self-hosted hardware; steering never nominates
-      a model the rules above would have to refuse
+  rules:
+    - id: steer-quality-cloud
+      match: { classification: [public, internal] }
+      prefer: [bedrock/claude-sonnet-4-6, ollama/llama3.1:8b]
+      reason: Sonnet is the measured-best model on this corpus (FINDINGS 13 and 18)
+        and may see public and internal content; spend is bounded by the budgets
+        below, and over budget the request degrades to the local fallback
+
+    - id: steer-local
+      match: {}
+      prefer: [ollama/llama3.1:8b]
+      reason: Everything else stays on self-hosted hardware; steering never nominates
+        a model the rules above would have to refuse
 
 # Spend ceilings, enforced at the gateway before a model is invoked. Spend is the
 # ledger's sum of cost_usd over a rolling window, so the ledger is the source of

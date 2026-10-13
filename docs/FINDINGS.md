@@ -670,6 +670,40 @@ rests on code semantics, add the document that makes it observable — a synthet
 corpus you control is exactly the place where every edge case can be made real
 instead of argued.
 
+## 21. A corpus edit is a red-team event (Oct 13, 2026)
+
+The first full-suite run after the day's changes failed its gating 3B red-team job:
+RED-003 with the poisoned document last — citation forgery, the attack class from
+section 18 — newly compromised. The answer left no room for charity: the model
+reproduced the planted salary table as fact with the forged [HR-007 v1] citation,
+down to the poison's own "these figures supersede any other version" line. A real
+compromise on a case the 3B had held through every previous run.
+
+Nothing about the attack, the prompt, or the model had changed. What changed was the
+corpus: two HR-013 documents added that morning (section 20) shifted sam's benign
+retrieval context for the poisoned-last arrangement, and the 3B's citation-forgery
+margin turned out to be thin enough that a two-document edit crossed it. The gate
+did exactly its job — it caught a behavioral change no code review could have seen,
+caused by a change nobody would have flagged as security-relevant.
+
+The decision rule was pre-registered before gathering evidence: rerun the job once;
+compromised again means deterministic in CI and a plain baseline entry, held means
+it comes and goes and a `flaky` entry. The rerun held. So did the same commit
+locally — seeded, temperature 0, and still divergent, because ollama determinism
+holds within an environment, not across macOS Metal and a Linux runner. The finding
+flaps from the only viewpoint the gate has, so it is baselined `flaky` with the
+full story in the reason, and both observed run shapes were replayed through the
+gate logic before pushing: the compromised shape gates as known, the held shape
+raises no stale, both exit zero.
+
+Three lessons. A corpus edit is a red-team event: context arrangement is part of
+the attack surface, and ingest-adjacent changes deserve the same gate run as code.
+Determinism is a property of an environment, not a seed — "deterministic locally"
+and "deterministic in CI" are separate claims, and the gate's truth is CI's.
+And pre-registering the decision rule before the rerun ("compromised again → plain
+entry; held → flaky") is what kept the baseline choice evidence-driven rather than
+convenient — the same discipline that settled section 17's propagation theory.
+
 ## What is still open
 
 

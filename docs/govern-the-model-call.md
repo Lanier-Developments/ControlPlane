@@ -1,6 +1,6 @@
 # Govern the Model Call
 
-*October 13, 2026 — Kevin McAllorum. Written as a blog post; lives here until there is a blog.*
+*October 13, 2026 — Kevin McAllorum. Published on dev.to: [Govern the Model Call](https://dev.to/kevin_mcallorum_1eb5d1630/govern-the-model-call-fj3).*
 
 Every claim in this post carries its measurement, because the system it describes refuses to ship anything unmeasured. [ControlPlane](https://github.com/Lanier-Developments/ControlPlane) is a governed RAG pipeline over a synthetic 72-document corporate corpus: retrieval is permission-scoped inside Postgres, every model call — including the refused ones — passes through one gateway and lands in an append-only ledger, and policy lives in YAML that fails closed. I built it to answer one question: what does it actually take to put an LLM behind real enterprise controls, measured instead of assumed?
 

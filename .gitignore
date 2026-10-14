@@ -6,3 +6,7 @@ __pycache__/
 eval-report.json
 retrieval-comparison.json
 redteam-report.json
+
+# ledger anchoring: the private key never belongs in the repo
+anchor-keys/ledger-anchor.pem
+*.pem

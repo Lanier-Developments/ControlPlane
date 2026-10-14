@@ -210,3 +210,10 @@ CREATE TRIGGER evidence_no_update BEFORE UPDATE ON evidence
 DROP TRIGGER IF EXISTS evidence_no_delete ON evidence;
 CREATE TRIGGER evidence_no_delete BEFORE DELETE ON evidence
     FOR EACH ROW EXECUTE FUNCTION evidence_append_only();
+
+-- TRUNCATE does not fire row-level triggers, so the two above alone left the whole
+-- ledger one statement from empty (and an empty chain verifies as intact). This one is
+-- statement-level. It binds the owner too; disabling it is the same deliberate act.
+DROP TRIGGER IF EXISTS evidence_no_truncate ON evidence;
+CREATE TRIGGER evidence_no_truncate BEFORE TRUNCATE ON evidence
+    FOR EACH STATEMENT EXECUTE FUNCTION evidence_append_only();

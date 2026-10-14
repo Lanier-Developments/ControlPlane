@@ -118,6 +118,16 @@ def record(
     return Entry(entry_id=entry_id, seq=seq, entry_hash=entry_hash)
 
 
+def head() -> tuple[int, str, int] | None:
+    """(seq, entry_hash, row count) of the newest entry, or None for an empty ledger."""
+    with owner_conn() as conn:
+        row = conn.execute(
+            "SELECT seq, entry_hash, (SELECT count(*) FROM evidence) "
+            "FROM evidence ORDER BY seq DESC LIMIT 1"
+        ).fetchone()
+    return (row[0], row[1], row[2]) if row else None
+
+
 def verify(limit: int | None = None) -> dict:
     """Recompute the chain and report the first break.
 

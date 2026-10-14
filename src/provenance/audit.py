@@ -1,6 +1,10 @@
 """Audit the evidence ledger.
 
     python -m provenance.audit verify          # recompute the whole chain
+    python -m provenance.audit verify --anchors FILE --pubkey KEY.pub
+                                               # ...and check it against signed anchors
+    python -m provenance.audit keygen DIR      # make an Ed25519 anchor keypair
+    python -m provenance.audit anchor          # append a signed checkpoint of the head
     python -m provenance.audit trace <id>      # one entry, or everything for a principal
     python -m provenance.audit tamper-demo     # prove the chain actually detects edits
 
@@ -9,21 +13,97 @@ claim, not a control.
 """
 import argparse
 import json
+import os
 import sys
+from pathlib import Path
 
+from . import anchor as anchors_mod
 from .db import owner_conn
-from .evidence import verify
+from .evidence import head, verify
+
+DEFAULT_ANCHOR_FILE = "ledger-anchors.jsonl"
+
+
+def _anchor_file(args) -> Path:
+    return Path(args.anchors or os.environ.get("LEDGER_ANCHOR_FILE", DEFAULT_ANCHOR_FILE))
+
+
+def _lookup(seqs: list[int]) -> dict[int, str]:
+    with owner_conn() as conn:
+        rows = conn.execute(
+            "SELECT seq, entry_hash FROM evidence WHERE seq = ANY(%s)", (seqs,)
+        ).fetchall()
+    return {seq: h for seq, h in rows}
 
 
 def cmd_verify(args) -> int:
     result = verify(limit=args.limit)
-    if result["ok"]:
+    if not result["ok"]:
+        print(f"CHAIN BROKEN at seq {result['broken_at']} after {result['checked']} good entries")
+        print(f"Reason: {result['why']}")
+        return 1
+    if result["checked"] == 0:
+        print("Ledger is EMPTY: nothing to verify. An empty chain passes by construction, "
+              "so this proves nothing about what used to be here.")
+    else:
         print(f"Chain intact: {result['checked']} entries verified")
-        print(f"Head: {result['head']}")
+        print(f"Head: {result.get('head')}")
+
+    if not args.anchors:
+        print("Not checked against anchors: a rewritten, truncated or restored-from-backup "
+              "ledger still passes. Use --anchors FILE --pubkey KEY.pub.")
         return 0
-    print(f"CHAIN BROKEN at seq {result['broken_at']} after {result['checked']} good entries")
-    print(f"Reason: {result['why']}")
+
+    pub = args.pubkey or os.environ.get("LEDGER_ANCHOR_PUBKEY")
+    if not pub:
+        print("--pubkey (or LEDGER_ANCHOR_PUBKEY) is required with --anchors")
+        return 2
+    h = head()
+    out = anchors_mod.verify_anchors(
+        anchors_mod.read_anchor_lines(Path(args.anchors)),
+        anchors_mod.load_public(Path(pub)), _lookup, h[0] if h else None,
+    )
+    if out["ok"]:
+        print(f"Anchors hold: {out['anchors']} signed checkpoints, latest at seq "
+              f"{out['latest_seq']}; every anchored entry is present with its signed hash")
+        return 0
+    print(f"ANCHOR CHECK FAILED at anchor {out['anchor']}")
+    print(f"Reason: {out['why']}")
     return 1
+
+
+def cmd_keygen(args) -> int:
+    priv, pub = anchors_mod.generate_keypair(Path(args.directory))
+    print(f"private key  {priv}   (keep OFF the database host; anchoring needs it)")
+    print(f"public key   {pub}   (verification needs only this)")
+    return 0
+
+
+def cmd_anchor(args) -> int:
+    key_path = args.key or os.environ.get("LEDGER_ANCHOR_KEY")
+    if not key_path:
+        print("--key (or LEDGER_ANCHOR_KEY) is required: path to the Ed25519 private key")
+        return 2
+    result = verify()
+    if not result["ok"]:
+        print(f"Refusing to anchor a broken chain (seq {result['broken_at']}: {result['why']})")
+        return 1
+    h = head()
+    if h is None:
+        print("Ledger is empty; nothing to anchor.")
+        return 1
+    seq, entry_hash, count = h
+    path = _anchor_file(args)
+    a = anchors_mod.make_anchor(
+        seq=seq, entry_hash=entry_hash, count=count,
+        prev_anchor_sha256=anchors_mod.previous_anchor_sha256(path),
+        key=anchors_mod.load_private(Path(key_path)),
+    )
+    anchors_mod.append_anchor(path, a)
+    print(f"Anchored seq {seq} ({count} entries), head {entry_hash[:16]}… -> {path}")
+    print("Now put that file somewhere the database owner cannot write "
+          "(commit it elsewhere, upload with object lock).")
+    return 0
 
 
 def cmd_trace(args) -> int:
@@ -125,22 +205,28 @@ def cmd_tamper_demo(args) -> int:
 
 
 def cmd_append_only(args) -> int:
-    """Confirm the triggers actually refuse UPDATE and DELETE."""
+    """Confirm the triggers actually refuse UPDATE, DELETE and TRUNCATE.
+
+    Every statement runs in a transaction that is always rolled back, so if a trigger is
+    missing this check reports the failure instead of committing the damage it probes for.
+    """
     import psycopg
 
     failures = 0
     for statement, label in [
         ("UPDATE evidence SET question = 'x' WHERE seq = (SELECT min(seq) FROM evidence)", "UPDATE"),
         ("DELETE FROM evidence WHERE seq = (SELECT min(seq) FROM evidence)", "DELETE"),
+        ("TRUNCATE evidence", "TRUNCATE"),
     ]:
-        try:
-            with owner_conn() as conn:
+        with owner_conn() as conn:
+            try:
                 conn.execute(statement)
-                conn.commit()
-            print(f"  FAIL  {label} was permitted")
-            failures += 1
-        except psycopg.errors.RaiseException:
-            print(f"  PASS  {label} refused by trigger")
+                print(f"  FAIL  {label} was permitted (rolled back)")
+                failures += 1
+            except psycopg.errors.RaiseException:
+                print(f"  PASS  {label} refused by trigger")
+            finally:
+                conn.rollback()
     return 1 if failures else 0
 
 
@@ -150,7 +236,19 @@ def main() -> int:
 
     v = sub.add_parser("verify", help="recompute the hash chain")
     v.add_argument("--limit", type=int, default=None, help="verify only the last N entries")
+    v.add_argument("--anchors", default=None, help="anchor file to check the ledger against")
+    v.add_argument("--pubkey", default=None, help="Ed25519 public key that signed the anchors")
     v.set_defaults(func=cmd_verify)
+
+    k = sub.add_parser("keygen", help="generate an Ed25519 keypair for signing anchors")
+    k.add_argument("directory")
+    k.set_defaults(func=cmd_keygen)
+
+    an = sub.add_parser("anchor", help="append a signed checkpoint of the ledger head")
+    an.add_argument("--key", default=None, help="Ed25519 private key (or LEDGER_ANCHOR_KEY)")
+    an.add_argument("--anchors", default=None,
+                    help=f"anchor file (or LEDGER_ANCHOR_FILE; default {DEFAULT_ANCHOR_FILE})")
+    an.set_defaults(func=cmd_anchor)
 
     t = sub.add_parser("trace", help="entries by principal, correlation id, or entry id")
     t.add_argument("id")
@@ -160,7 +258,7 @@ def main() -> int:
     sub.add_parser("tamper-demo", help="prove the chain detects a silent edit").set_defaults(
         func=cmd_tamper_demo
     )
-    sub.add_parser("append-only", help="confirm UPDATE and DELETE are refused").set_defaults(
+    sub.add_parser("append-only", help="confirm UPDATE, DELETE and TRUNCATE are refused").set_defaults(
         func=cmd_append_only
     )
 

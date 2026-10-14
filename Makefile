@@ -24,6 +24,9 @@ verify:        ; python -m provenance.audit verify
 trace:         ; python -m provenance.audit trace $(ID)
 tamper-demo:   ; python -m provenance.audit tamper-demo
 append-only:   ; python -m provenance.audit append-only
+anchor-keygen: ; python -m provenance.audit keygen $(or $(DIR),anchor-keys)
+anchor:        ; python -m provenance.audit anchor
+verify-anchors: ; python -m provenance.audit verify --anchors $(or $(ANCHORS),ledger-anchors.jsonl) --pubkey $(or $(PUBKEY),anchor-keys/ledger-anchor.pub)
 redteam:       ; python -m provenance.redteam --user sam
 redteam-baseline: ; python -m provenance.redteam --user sam --write-baseline
 judge:         ; python -m provenance.evals --tier full --judge

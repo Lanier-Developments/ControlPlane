@@ -404,8 +404,11 @@ make migrate                      # adds the evidence table and its triggers
 make ask Q="..." USER=sam         # every question writes an entry
 make verify                       # recompute the whole hash chain
 make trace ID=sam                 # entries by principal, correlation id, or entry id
-make append-only                  # confirm UPDATE and DELETE are refused
+make append-only                  # confirm UPDATE, DELETE and TRUNCATE are refused
 make tamper-demo                  # prove the chain detects a silent edit
+make anchor-keygen DIR=keys       # Ed25519 keypair; keep the private key off the DB host
+make anchor                       # append a signed checkpoint of the head hash
+make verify-anchors               # chain + every anchored row still present, same hash
 ```
 
 **What an answer has to prove, after the fact.** Who asked, what they were entitled to, which chunks were retrieved, which model ran, which rule permitted it, and that the record has not been altered since. One entry per question, answered or refused.
@@ -414,9 +417,11 @@ make tamper-demo                  # prove the chain detects a silent edit
 
 **Refusals are entries.** A question that returned nothing, and a question refused by routing policy, both write to the ledger. A ledger holding only successes proves nothing about enforcement: the refusals are how you show the controls fired rather than that they were merely configured.
 
-**Append-only in the database.** Triggers refuse `UPDATE` and `DELETE` outright. Rewriting history requires `ALTER TABLE ... DISABLE TRIGGER` — deliberately awkward, so an accident cannot do it and a deliberate act leaves a schema change behind.
+**Append-only in the database.** Triggers refuse `UPDATE`, `DELETE` and `TRUNCATE` outright (the first two are row-level, the last is statement-level; a row-level trigger alone does not stop `TRUNCATE`). Rewriting history requires `ALTER TABLE ... DISABLE TRIGGER` — deliberately awkward, so an accident cannot do it and a deliberate act leaves a schema change behind.
 
 **Tamper-evident, not tamper-proof.** Each entry hashes its own content plus the previous entry's hash, so altering or removing a past row invalidates every hash after it. `verify` recomputes each digest from stored content rather than trusting the stored hash, which catches an edit even if the editor also updated that row's hash — the break just moves to the next link. Anyone who can rewrite the entire table in order can still forge a consistent chain. Detecting quiet edits is the goal; defeating an operator with database ownership is not, and claiming otherwise would be dishonest.
+
+**Anchoring closes the three attacks a valid chain cannot see.** Rewriting every row from the edit onward, deleting the newest rows, and restoring from an older backup all leave a consistent chain, because nothing outside the database remembers the head hash. `make anchor` appends a signed `{seq, entry_hash, count}` checkpoint to a file kept where the database owner cannot write, signed with an Ed25519 key the database host never holds; anchors are chained to each other, so removing or editing one is detectable. `make verify-anchors` fails if any anchored row is missing or has a different hash. Entries since the latest anchor are protected only by the chain, so the exposure window is the anchoring interval, and the signing key becomes the root of trust. See [FINDINGS §22](docs/FINDINGS.md) for the measured attacks.
 
 `make tamper-demo` edits a row behind the triggers, shows verification fail, then restores it. A hash chain nobody has watched break is a claim, not a control.
 

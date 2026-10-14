@@ -704,6 +704,61 @@ And pre-registering the decision rule before the rerun ("compromised again → p
 entry; held → flaky") is what kept the baseline choice evidence-driven rather than
 convenient — the same discipline that settled section 17's propagation theory.
 
+## 22. "Append-only" had a hole, and the chain had a blind spot (Oct 13, 2026)
+
+A reader of the published post asked how the ledger's append-only guarantee is
+enforced: database permissions, or a tamper-evident chain that survives an operator
+with raw access? The honest answer was already "both, with limits" (Phase 6 has the
+triggers and the hash chain), but checking the code to answer precisely turned up two
+things the post and the README had not said.
+
+**TRUNCATE slipped past the triggers.** The guards were `BEFORE UPDATE` and
+`BEFORE DELETE ... FOR EACH ROW`. `TRUNCATE` fires neither, so one statement emptied
+the ledger — and `verify` on an empty table reports an intact chain of zero entries.
+Fixed: a statement-level `BEFORE TRUNCATE` trigger on the same function. `make
+append-only` now probes TRUNCATE too, and every probe runs in a transaction that is
+always rolled back (the old probe would have *committed* its DELETE had the trigger
+been missing, destroying the evidence it was checking for).
+
+**A valid chain is not an unaltered ledger.** Three attacks leave a perfectly
+consistent chain: rewriting every row from the edit onward, deleting the newest
+rows, restoring from an older or tampered backup. Reproduced against a real
+Postgres 16 with the owner disabling the triggers — the plain `verify` printed
+"Chain intact" for the full rewrite and for the emptied table. The chain's job is to
+catch *quiet* edits; none of these is quiet, and nothing outside the database
+remembered the head hash.
+
+Closed by anchoring: `make anchor` appends a signed checkpoint
+`{seq, entry_hash, count, prev_anchor_sha256}` to a file kept where the database
+owner cannot write, signed with an Ed25519 key the database host never holds;
+`make verify-anchors` checks that every anchored row still exists with exactly the
+signed hash. Measured on the same Postgres, with anchors at seq 8 and 10:
+
+| attack (owner disables the trigger) | chain-only `verify` | with anchors |
+|---|---|---|
+| delete newest 3 rows | intact (shorter chain) | **fails**: ledger ends before anchored seq |
+| edit row 3, rehash everything after | intact | **fails**: anchored entry has a different hash |
+| `TRUNCATE` | intact, 0 entries | **fails**: ledger ends before anchored seq |
+| append after the last anchor | intact | holds (as it should) |
+
+Logic is covered DB-free in `tests/test_anchor.py` (13 tests: the attacks above,
+plus a removed or edited anchor line, a wrong signing key, and no anchors at all,
+which is a failure rather than a pass).
+
+What this still is not:
+- **The window is the anchoring interval.** Entries after the latest anchor are
+  protected only by the chain. Nothing anchors on a schedule yet; `make anchor` is
+  manual, so the interval today is "whenever someone runs it."
+- **The signing key is the new root of trust.** Whoever holds it can sign a false
+  anchor. Where the key and the anchor file live is deployment, not code, and this
+  repo does not provision either.
+- **Truncating the anchor file's tail is undetected**, for the same reason truncating
+  the ledger's tail was: the file's custody (a separate git remote, an object-locked
+  bucket) is the control there.
+- The triggers still yield to the table owner (`ALTER TABLE ... DISABLE TRIGGER`).
+  That is deliberate and visible in the schema; it is what the anchors exist to
+  outlast.
+
 ## What is still open
 
 

@@ -125,8 +125,10 @@ is how you show the controls fired rather than only that they were configured. `
 chain, and the Ledger tab in control-plane-web makes that a button.
 
 **Be exact about the claim.** The chain is tamper-evident, not tamper-proof. Anyone who can rewrite the whole
-table in order can forge a consistent chain. To close that, anchor the head hash somewhere the database owner
-cannot write: a periodic signed checkpoint, or an external timestamp.
+table in order can forge a consistent chain, and so can deleting the newest rows or restoring an older
+backup. `make anchor` closes that: it signs the head hash into a file kept where the database owner cannot
+write, and `make verify-anchors` checks the ledger against it. The exposure window is the anchoring interval,
+so schedule it.
 
 **Status.** Today. Add: export a time range as a signed bundle for an auditor (Small), and see the caveat in
 use 2 about question text.

@@ -259,7 +259,7 @@ a locked question box, disabled cloud models and a banner.
 | 1 | `POST /v1/complete` over `gateway.complete()`, with required classification and correlation id | Use 2 |
 | 2 | Ledger option to store an input digest in place of question text | Use 2 with sensitive prompts |
 | 3 | Extend `/api/usage` with budgets, steering and provider health, and show them in control-plane-web | Use 4 |
-| 4 | Signed ledger checkpoints and a range export | Use 3 for external auditors |
+| 4 | Range export for auditors (checkpoints already ship as `make anchor`) | Use 3 for external auditors |
 | 5 | Packaged assessment kit | Use 9 |
 | 6 | Tool-call governance design | Use 8 |
 

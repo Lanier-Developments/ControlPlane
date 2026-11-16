@@ -27,6 +27,7 @@ def test_valid_token_uses_token_identity_and_groups(oidc, client, make_token, re
     assert recorder.calls == [{
         "question": Q["question"], "user": "user-123",
         "verified_groups": ["public", "engineering"],
+        "delegation": [],
     }]
 
 
@@ -195,7 +196,8 @@ def test_persona_mode_still_takes_the_body_user(monkeypatch, client, recorder):
     monkeypatch.setattr(settings, "auth_mode", "persona")
     r = client.post("/ask", json={**Q, "user": "sam"})
     assert r.status_code == 200
-    assert recorder.calls == [{"question": Q["question"], "user": "sam", "verified_groups": None}]
+    assert recorder.calls == [{"question": Q["question"], "user": "sam",
+                               "verified_groups": None, "delegation": None}]
 
 
 # --- configuration fails closed --------------------------------------------
@@ -229,3 +231,100 @@ def test_symmetric_or_empty_algorithm_list_refuses_to_start(oidc, monkeypatch, a
     monkeypatch.setattr(settings, "oidc_algorithms", algs)
     with pytest.raises(RuntimeError):
         auth.validate_config()
+
+
+# --- delegation: who is acting for the subject ------------------------------
+#
+# The `act` claim (RFC 8693) is the only source of the chain the ledger records.
+# Two properties matter: the chain reaches the pipeline exactly as the issuer
+# signed it, and it never changes whose entitlements apply.
+
+def test_direct_call_records_an_empty_chain_not_a_missing_one(oidc, client, make_token, recorder):
+    r = client.post("/ask", json=Q, headers=bearer(make_token()))
+    assert r.status_code == 200
+    assert recorder.calls[0]["delegation"] == []
+
+
+def test_persona_mode_has_no_verified_chain_to_record(client, recorder):
+    r = client.post("/ask", json={**Q, "user": "dana"})
+    assert r.status_code == 200
+    assert recorder.calls[0]["delegation"] is None
+
+
+def test_single_actor(oidc, client, make_token, recorder):
+    r = client.post("/ask", json=Q, headers=bearer(make_token(act={"sub": "agent-billing"})))
+    assert r.status_code == 200
+    assert recorder.calls[0]["delegation"] == [{"sub": "agent-billing"}]
+
+
+def test_three_hops_upstream_are_recorded_in_order_caller_first(oidc, client, make_token, recorder):
+    act = {"sub": "agent-c", "iss": "https://agents.example.test/",
+           "act": {"sub": "agent-b", "act": {"sub": "scheduler-a"}}}
+    r = client.post("/ask", json=Q, headers=bearer(make_token(act=act)))
+    assert r.status_code == 200
+    assert recorder.calls[0]["delegation"] == [
+        {"sub": "agent-c", "iss": "https://agents.example.test/"},
+        {"sub": "agent-b"},
+        {"sub": "scheduler-a"},
+    ]
+
+
+def test_actor_does_not_change_whose_entitlements_apply(oidc, client, make_token, recorder):
+    """An actor that names groups of its own gets none of them: entitlements are the
+    subject's, and only identity members of `act` are read."""
+    act = {"sub": "agent-c", "groups": ["hr-comp", "cp-admin"]}
+    r = client.post("/ask", json=Q, headers=bearer(make_token(act=act)))
+    assert r.status_code == 200
+    call = recorder.calls[0]
+    assert call["user"] == "user-123"
+    assert call["verified_groups"] == ["public", "engineering"]
+    assert call["delegation"] == [{"sub": "agent-c"}]
+
+
+def test_actor_with_admin_group_does_not_reach_the_admin_plane(oidc, client, make_token):
+    act = {"sub": "agent-c", "groups": ["cp-admin"]}
+    r = client.get("/api/verify", headers=bearer(make_token(act=act)))
+    assert r.status_code == 403
+
+
+def test_body_cannot_supply_a_chain(oidc, client, make_token, recorder):
+    body = {**Q, "delegation": [{"sub": "someone-else"}], "act": {"sub": "someone-else"}}
+    r = client.post("/ask", json=body, headers=bearer(make_token()))
+    assert r.status_code == 200
+    assert recorder.calls[0]["delegation"] == []
+
+
+@pytest.mark.parametrize("act", [
+    "agent-c",                                   # not an object
+    ["agent-c"],
+    {},                                          # no sub
+    {"sub": ""},
+    {"sub": 7},
+    {"sub": "agent-c", "iss": 7},
+    {"sub": "agent-c", "iss": ""},
+    {"sub": "agent-c", "act": "agent-b"},        # malformed further up the chain
+    {"sub": "agent-c", "act": {"iss": "x"}},
+])
+def test_malformed_chain_is_refused_not_recorded_as_direct(oidc, client, make_token, recorder, act):
+    r = client.post("/ask", json=Q, headers=bearer(make_token(act=act)))
+    assert r.status_code == 401
+    assert recorder.calls == []
+
+
+def test_chain_deeper_than_the_limit_is_refused_not_truncated(oidc, client, make_token, recorder):
+    from provenance.auth import MAX_DELEGATION_DEPTH
+
+    def nest(depth):
+        node = {"sub": "hop-0"}
+        for i in range(1, depth):
+            node = {"sub": f"hop-{i}", "act": node}
+        return node
+
+    ok = client.post("/ask", json=Q, headers=bearer(make_token(act=nest(MAX_DELEGATION_DEPTH))))
+    assert ok.status_code == 200
+    assert len(recorder.calls[0]["delegation"]) == MAX_DELEGATION_DEPTH
+
+    recorder.calls.clear()
+    r = client.post("/ask", json=Q, headers=bearer(make_token(act=nest(MAX_DELEGATION_DEPTH + 1))))
+    assert r.status_code == 401
+    assert recorder.calls == []

@@ -29,9 +29,10 @@ class Recorder:
         self.calls: list[dict] = []
 
     def ask(self, question, user=None, record_evidence=True, requested_model=None,
-            verified_groups=None):
+            verified_groups=None, delegation=None):
         self.calls.append({"question": question, "user": user,
-                           "verified_groups": verified_groups})
+                           "verified_groups": verified_groups,
+                           "delegation": delegation})
         return {"answer": "stub", "user": user}
 
 

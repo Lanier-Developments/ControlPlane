@@ -27,6 +27,20 @@ Design rules, all of which fail closed:
     server log, not to the caller.
   * An unknown AUTH_MODE refuses to start rather than falling back to persona.
   * A missing or malformed groups claim means no groups, which means no rows.
+
+Delegation. When an agent acts for someone else, the token says so in the `act`
+claim (RFC 8693, OAuth 2.0 Token Exchange): `sub` is the party the call is made on
+behalf of, `act.sub` is the agent making it, and each nested `act` is the actor one
+hop further upstream. The chain is read from the verified token only and written to
+the evidence ledger; nothing in the request can add, drop or reorder a hop.
+
+  * Entitlements still come from `sub` and its groups. The chain is recorded, not
+    used to widen access; RFC 8693 section 4.1 says the nested actors are
+    informational and must not drive access decisions.
+  * A token with no `act` claim is a direct call and records an empty chain.
+  * A malformed `act` claim is a 401, not an empty chain. Quietly dropping a hop
+    the issuer asserted would turn a delegated call into a direct one in the audit
+    record, which is the exact thing the record exists to prevent.
 """
 from __future__ import annotations
 
@@ -50,17 +64,42 @@ ASYMMETRIC_ALGORITHMS = frozenset(
 )
 REQUIRED_CLAIMS = ("exp", "iat", "iss", "aud", "sub")
 
+# How many hops of `act` nesting are accepted. A deeper chain is refused rather than
+# truncated: a truncated chain is a false record.
+MAX_DELEGATION_DEPTH = 8
+
 _bearer = HTTPBearer(auto_error=False)
 
 
 @dataclass(frozen=True)
+class Actor:
+    """One hop of a delegation chain: a party acting for the token's subject."""
+
+    sub: str
+    iss: str | None = None
+
+    def as_dict(self) -> dict[str, str]:
+        return {"sub": self.sub} if self.iss is None else {"sub": self.sub, "iss": self.iss}
+
+
+@dataclass(frozen=True)
 class Principal:
-    """A verified caller. `groups` are entitlements and never include the admin group."""
+    """A verified caller. `groups` are entitlements and never include the admin group.
+
+    `subject` is who the call is for. `delegation` is who is making it, when that is
+    someone else: the current actor first, then each earlier actor in turn. Empty
+    means the subject called directly.
+    """
 
     subject: str
     groups: tuple[str, ...] = ()
     is_admin: bool = False
     claims: dict[str, Any] = field(default_factory=dict, repr=False, compare=False)
+    delegation: tuple[Actor, ...] = ()
+
+    def delegation_record(self) -> list[dict[str, str]]:
+        """The chain in the form the evidence ledger stores and hashes."""
+        return [a.as_dict() for a in self.delegation]
 
 
 class KeyResolver(Protocol):
@@ -151,6 +190,36 @@ def groups_from_claims(claims: dict[str, Any]) -> tuple[list[str], bool]:
     return entitlements, is_admin
 
 
+def delegation_from_claims(claims: dict[str, Any]) -> tuple[Actor, ...]:
+    """Read the RFC 8693 `act` chain: current actor first, earliest actor last.
+
+    No `act` claim means a direct call and an empty chain. Anything present but not
+    well formed raises, so the token is rejected: see the module docstring for why a
+    malformed chain is not treated as an absent one.
+    """
+    if "act" not in claims:
+        return ()
+    chain: list[Actor] = []
+    node: Any = claims["act"]
+    while True:
+        if not isinstance(node, dict):
+            raise jwt.InvalidTokenError("act must be a JSON object")
+        if len(chain) >= MAX_DELEGATION_DEPTH:
+            raise jwt.InvalidTokenError(
+                f"act chain is deeper than {MAX_DELEGATION_DEPTH} hops"
+            )
+        actor_sub = node.get("sub")
+        if not isinstance(actor_sub, str) or not actor_sub:
+            raise jwt.InvalidTokenError("act.sub must be a non-empty string")
+        actor_iss = node.get("iss")
+        if actor_iss is not None and (not isinstance(actor_iss, str) or not actor_iss):
+            raise jwt.InvalidTokenError("act.iss must be a non-empty string when present")
+        chain.append(Actor(sub=actor_sub, iss=actor_iss))
+        if "act" not in node:
+            return tuple(chain)
+        node = node["act"]
+
+
 def verify_token(token: str) -> Principal:
     """Verify signature and registered claims. Raises jwt.PyJWTError on any failure."""
     key = _get_resolver().signing_key(token)
@@ -167,7 +236,10 @@ def verify_token(token: str) -> Principal:
     if not isinstance(subject, str) or not subject:
         raise jwt.InvalidTokenError("sub must be a non-empty string")
     groups, is_admin = groups_from_claims(claims)
-    return Principal(subject=subject, groups=tuple(groups), is_admin=is_admin, claims=claims)
+    return Principal(
+        subject=subject, groups=tuple(groups), is_admin=is_admin, claims=claims,
+        delegation=delegation_from_claims(claims),
+    )
 
 
 CLI_TOKEN_ENV = "CONTROLPLANE_TOKEN"
@@ -184,9 +256,21 @@ def resolve_cli_identity(user: str | None) -> tuple[str | None, list[str] | None
 
     Raises SystemExit rather than returning a weaker identity on any failure.
     """
+    user, groups, _delegation = resolve_cli_caller(user)
+    return user, groups
+
+
+def resolve_cli_caller(
+    user: str | None,
+) -> tuple[str | None, list[str] | None, list[dict[str, str]] | None]:
+    """`resolve_cli_identity` plus the delegation chain, for the evidence ledger.
+
+    The third value is None in persona mode, where identity is claimed and there is
+    no verified chain to record, and a list (empty for a direct call) in oidc mode.
+    """
     mode = settings.auth_mode
     if mode == "persona":
-        return user, None
+        return user, None, None
     if mode != "oidc":
         raise SystemExit(f"Unknown AUTH_MODE {mode!r}. Use 'persona' or 'oidc'.")
     if user is not None:
@@ -202,7 +286,7 @@ def resolve_cli_identity(user: str | None) -> tuple[str | None, list[str] | None
         # Operators get the reason in the log; the caller learns only that it failed.
         log.info("token rejected: %s: %s", type(exc).__name__, exc)
         raise SystemExit("Authentication failed.") from None
-    return principal.subject, list(principal.groups)
+    return principal.subject, list(principal.groups), principal.delegation_record()
 
 
 def _unauthorized() -> HTTPException:

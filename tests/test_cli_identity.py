@@ -101,3 +101,36 @@ def test_persona_table_refuses_to_serve_in_oidc_mode(oidc):
 
     with pytest.raises(RuntimeError):
         groups_for("dana")
+
+
+# --- the CLI records the same chain the API does ------------------------------
+
+def caller(user=None):
+    from provenance.auth import resolve_cli_caller
+
+    return resolve_cli_caller(user)
+
+
+def test_persona_mode_has_no_chain(monkeypatch):
+    from provenance.config import settings
+
+    monkeypatch.setattr(settings, "auth_mode", "persona")
+    assert caller("sam") == ("sam", None, None)
+
+
+def test_direct_token_yields_an_empty_chain(oidc, monkeypatch, make_token):
+    monkeypatch.setenv("CONTROLPLANE_TOKEN", make_token())
+    assert caller() == ("user-123", ["public", "engineering"], [])
+
+
+def test_delegated_token_yields_the_chain(oidc, monkeypatch, make_token):
+    monkeypatch.setenv("CONTROLPLANE_TOKEN",
+                       make_token(act={"sub": "agent-b", "act": {"sub": "agent-a"}}))
+    assert caller() == ("user-123", ["public", "engineering"],
+                        [{"sub": "agent-b"}, {"sub": "agent-a"}])
+
+
+def test_malformed_chain_is_a_refusal_here_too(oidc, monkeypatch, make_token):
+    monkeypatch.setenv("CONTROLPLANE_TOKEN", make_token(act={"sub": ""}))
+    with pytest.raises(SystemExit):
+        caller()

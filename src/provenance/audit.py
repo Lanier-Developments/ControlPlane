@@ -6,6 +6,7 @@
     python -m provenance.audit keygen DIR      # make an Ed25519 anchor keypair
     python -m provenance.audit anchor          # append a signed checkpoint of the head
     python -m provenance.audit trace <id>      # one entry, or everything for a principal
+                                               # or for an agent that acted for one
     python -m provenance.audit tamper-demo     # prove the chain actually detects edits
 
 The tamper demo matters more than it looks. A hash chain nobody has watched break is a
@@ -106,19 +107,38 @@ def cmd_anchor(args) -> int:
     return 0
 
 
+def describe_delegation(delegation: list[dict] | None) -> str:
+    """One line for the chain: the actor that made the call first, then each actor
+    it was acting through, back to the first hop after the principal."""
+    if delegation is None:
+        return "not recorded (no verified chain for this entry)"
+    if not delegation:
+        return "direct (the principal called; token carried no actor)"
+
+    def name(a: dict) -> str:
+        return f"{a['sub']} @ {a['iss']}" if a.get("iss") else a["sub"]
+
+    return " <- ".join(name(a) for a in delegation) + "   (caller first)"
+
+
 def cmd_trace(args) -> int:
     with owner_conn() as conn:
         rows = conn.execute(
             """
             SELECT e.seq, e.occurred_at, e.principal, e.groups, e.question,
                    e.classification, e.decision, e.model_id, e.rule_id,
-                   e.retrieved, e.answer_sha256, e.cost_usd, e.correlation_id
+                   e.retrieved, e.answer_sha256, e.cost_usd, e.correlation_id,
+                   e.delegation
             FROM evidence e
             WHERE e.principal = %(id)s OR e.correlation_id::text = %(id)s
                OR e.entry_id::text = %(id)s
+               OR e.delegation @> %(actor)s::jsonb
             ORDER BY e.seq DESC LIMIT %(limit)s
             """,
-            {"id": args.id, "limit": args.limit},
+            # The containment match finds the id at any hop of a chain, so tracing an
+            # agent returns every call it made or relayed, whoever it was acting for.
+            {"id": args.id, "limit": args.limit,
+             "actor": json.dumps([{"sub": args.id}])},
         ).fetchall()
 
     if not rows:
@@ -126,9 +146,10 @@ def cmd_trace(args) -> int:
         return 1
 
     for (seq, at, principal, groups, question, classification, decision, model_id,
-         rule_id, retrieved, answer_hash, cost, correlation_id) in rows:
+         rule_id, retrieved, answer_hash, cost, correlation_id, delegation) in rows:
         print(f"\n#{seq}  {at:%Y-%m-%d %H:%M:%S}  {decision}")
         print(f"  principal      {principal} ({', '.join(groups)})")
+        print(f"  acting         {describe_delegation(delegation)}")
         print(f"  question       {question}")
         print(f"  classification {classification}")
         print(f"  model          {model_id or '—'}   rule: {rule_id or '—'}")
@@ -250,7 +271,8 @@ def main() -> int:
                     help=f"anchor file (or LEDGER_ANCHOR_FILE; default {DEFAULT_ANCHOR_FILE})")
     an.set_defaults(func=cmd_anchor)
 
-    t = sub.add_parser("trace", help="entries by principal, correlation id, or entry id")
+    t = sub.add_parser("trace", help="entries by principal, acting agent, correlation id, "
+                                     "or entry id")
     t.add_argument("id")
     t.add_argument("--limit", type=int, default=5)
     t.set_defaults(func=cmd_trace)

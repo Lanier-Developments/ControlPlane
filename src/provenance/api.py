@@ -122,7 +122,7 @@ def evidence_endpoint(limit: int = 10, _admin: Principal | None = Depends(requir
         rows = conn.execute(
             """
             SELECT seq, occurred_at, principal, question, classification, decision,
-                   model_id, rule_id, answer_sha256, cost_usd, entry_hash
+                   model_id, rule_id, answer_sha256, cost_usd, entry_hash, delegation
             FROM evidence ORDER BY seq DESC LIMIT %s
             """,
             (limit,),
@@ -135,6 +135,8 @@ def evidence_endpoint(limit: int = 10, _admin: Principal | None = Depends(requir
                 "model": r[6], "rule_id": r[7], "answer_sha256": r[8],
                 "cost_usd": float(r[9]) if r[9] is not None else None,
                 "entry_hash": r[10],
+                # null: no verified chain recorded. []: verified direct call.
+                "delegation": r[11],
             }
             for r in rows
         ]
@@ -216,6 +218,7 @@ def ask_endpoint(
             principal.subject,
             requested_model=req.model or None,
             verified_groups=list(principal.groups),
+            delegation=principal.delegation_record(),
         )
     except UnknownPrincipal as exc:
         raise HTTPException(status_code=403, detail=f"Unknown principal: {exc}") from None

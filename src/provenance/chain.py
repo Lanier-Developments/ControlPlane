@@ -100,7 +100,11 @@ def ask(
     record_evidence: bool = True,
     requested_model: str | None = None,
     verified_groups: list[str] | None = None,
+    delegation: list[dict] | None = None,
 ) -> dict:
+    """`delegation` is the verified actor chain from the caller's token (auth.py), or
+    None when identity was not verified. It is recorded, never used to widen access:
+    retrieval and routing below are scoped to `user` and `groups` alone."""
     import uuid as _uuid
 
     from .evidence import record
@@ -131,7 +135,7 @@ def ask(
             # was applied to this principal at this time.
             record(correlation_id=correlation_id, principal=user, groups=groups,
                    question=question, classification="public", retrieved=[],
-                   decision="refused_no_access", answer=answer)
+                   decision="refused_no_access", answer=answer, delegation=delegation)
         return {
             "question": question,
             "user": user,
@@ -155,7 +159,7 @@ def ask(
             record(correlation_id=correlation_id, principal=user, groups=groups,
                    question=question, classification=classification,
                    retrieved=chunk_refs(docs), decision="refused_policy",
-                   rule_id="policy-denied")
+                   rule_id="policy-denied", delegation=delegation)
         return {
             "question": question,
             "user": user,
@@ -190,7 +194,7 @@ def ask(
             retrieved=chunk_refs(docs), decision="answered",
             model_id=completion.model_id,
             rule_id=allowed[-1].rule_id if allowed else None,
-            answer=answer, cost_usd=completion.cost_usd,
+            answer=answer, cost_usd=completion.cost_usd, delegation=delegation,
         )
 
     return {
@@ -203,6 +207,7 @@ def ask(
             "correlation_id": completion.correlation_id,
             "evidence_id": entry.entry_id if entry else None,
             "evidence_seq": entry.seq if entry else None,
+            "delegation": delegation,
             "model": completion.model_id,
             "classification": classification,
             "decisions": [
@@ -224,10 +229,11 @@ def main() -> None:
                         help="persona (AUTH_MODE=persona only; in oidc mode identity "
                              "comes from the $CONTROLPLANE_TOKEN bearer token)")
     args = parser.parse_args()
-    from .auth import resolve_cli_identity
+    from .auth import resolve_cli_caller
 
-    user, verified_groups = resolve_cli_identity(args.user)
-    print(json.dumps(ask(args.question, user, verified_groups=verified_groups), indent=2))
+    user, verified_groups, delegation = resolve_cli_caller(args.user)
+    print(json.dumps(ask(args.question, user, verified_groups=verified_groups,
+                         delegation=delegation), indent=2))
 
 
 if __name__ == "__main__":

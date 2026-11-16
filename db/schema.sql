@@ -187,9 +187,22 @@ CREATE TABLE IF NOT EXISTS evidence (
     answer_sha256   text,                   -- the answer's digest, not the answer
     cost_usd        numeric(12, 6),
     prev_hash       text        NOT NULL,
-    entry_hash      text        NOT NULL
+    entry_hash      text        NOT NULL,
+    delegation      jsonb                   -- [{sub, iss?}], caller first; see below
 );
 
+-- Delegation: who made the call when it was not the principal themselves. Taken from
+-- the verified token's RFC 8693 `act` claim, current actor first, earliest actor last.
+--   NULL   no verified chain to record (persona mode, or a row older than this column)
+--   []     verified token, no actor: the principal called directly
+--   [...]  a delegated call
+-- NULL is left out of the hashed content, so rows written before the column existed
+-- verify unchanged; any other value is covered by entry_hash. ADD COLUMN is DDL and
+-- does not fire the append-only triggers, and it rewrites no existing row.
+ALTER TABLE evidence ADD COLUMN IF NOT EXISTS delegation jsonb;
+
+CREATE INDEX IF NOT EXISTS evidence_delegation_idx
+    ON evidence USING gin (delegation jsonb_path_ops);
 CREATE INDEX IF NOT EXISTS evidence_correlation_idx ON evidence (correlation_id);
 CREATE INDEX IF NOT EXISTS evidence_principal_idx ON evidence (principal, occurred_at DESC);
 CREATE INDEX IF NOT EXISTS evidence_occurred_idx ON evidence (occurred_at DESC);

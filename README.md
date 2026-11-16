@@ -344,6 +344,7 @@ Row-level security enforces the groups it is given. Authentication is what makes
 - **Identity comes from the token, not the body.** `POST /ask` rejects a `user` field in `oidc` mode. The verified subject and group claims go to `app_conn()` as an explicit list, so the persona table is no longer in the path.
 - **The CLI is not a side door.** `python -m provenance.chain` refuses `--user` in `oidc` mode and takes its identity from a `$CONTROLPLANE_TOKEN` bearer token, through the same verifier with the same generic failure. The persona table itself raises outside `persona` mode, so no code path — present or future — can quietly consult it.
 - **Only asymmetric algorithms, pinned in config.** The token's `alg` header never picks the verifier, which closes `alg: none` and RS256-to-HS256 key confusion. `exp`, `iat`, `iss`, `aud` and `sub` are required.
+- **Delegation is read from the token, never the request.** An RFC 8693 `act` claim becomes the delegation chain in the evidence ledger (see [Evidence ledger](#evidence-ledger-phase-6)). A malformed chain, or one deeper than eight hops, is a 401 rather than an empty or truncated chain: dropping a hop the issuer asserted would record a delegated call as a direct one.
 - **Fail closed.** Any verification failure is a 401 with a generic body (the reason goes to the log). A missing groups claim means no groups, which means no rows. An unknown `AUTH_MODE` or a symmetric algorithm in config stops the service at startup.
 - **The admin plane is separate.** `/api/evidence`, `/api/usage` and `/api/verify` read through the owner connection, which RLS does not constrain, so they require the `OIDC_ADMIN_GROUP` claim. `/api/personas` returns 404.
 - **`persona` mode remains the default** for local development, the eval gate and the demo console, and logs a warning at startup. Do not expose an instance in that mode.
@@ -403,7 +404,7 @@ Measured on the full golden set: 44 calls, 0 denied, all routed to self-hosted i
 make migrate                      # adds the evidence table and its triggers
 make ask Q="..." USER=sam         # every question writes an entry
 make verify                       # recompute the whole hash chain
-make trace ID=sam                 # entries by principal, correlation id, or entry id
+make trace ID=sam                 # entries by principal, acting agent, correlation id, or entry id
 make append-only                  # confirm UPDATE, DELETE and TRUNCATE are refused
 make tamper-demo                  # prove the chain detects a silent edit
 make anchor-keygen DIR=keys       # Ed25519 keypair; keep the private key off the DB host
@@ -411,7 +412,7 @@ make anchor                       # append a signed checkpoint of the head hash
 make verify-anchors               # chain + every anchored row still present, same hash
 ```
 
-**What an answer has to prove, after the fact.** Who asked, what they were entitled to, which chunks were retrieved, which model ran, which rule permitted it, and that the record has not been altered since. One entry per question, answered or refused.
+**What an answer has to prove, after the fact.** Who asked, who was acting for them, what they were entitled to, which chunks were retrieved, which model ran, which rule permitted it, and that the record has not been altered since. One entry per question, answered or refused.
 
 **Digests, not answers.** The ledger stores a SHA-256 of the answer and chunk ids, never the answer text or the chunk text. Storing answers would recreate — in an append-only table that cannot be deleted from — a copy of exactly the confidential content the permission layer works to contain. The digest proves what was said to anyone who still has the text and discloses nothing to anyone who does not.
 
@@ -426,6 +427,10 @@ make verify-anchors               # chain + every anchored row still present, sa
 `make tamper-demo` edits a row behind the triggers, shows verification fail, then restores it. A hash chain nobody has watched break is a claim, not a control.
 
 **Correlation across layers.** One correlation id links the ledger entry to the model call log, so a single answer's retrieval scope and its model routing decision can be reconstructed together. `make trace ID=<principal>` prints both.
+
+**The delegation chain is in the entry, and in the hash.** When an agent calls on someone's behalf, `principal` is who the call was for and `delegation` is who made it: the calling agent first, then each agent it was acting through, back to the first hop. The chain is read from the verified token's `act` claim (RFC 8693 token exchange) and from nowhere else, so a request cannot add, drop or reorder a hop. The field has three states that mean different things: a list of actors is a delegated call, `[]` is a verified direct call, and `null` means there was no verified chain to record (persona mode, or an entry older than the field). `null` is left out of the hashed content, which is why a ledger written before this field still verifies after `make migrate`; every other value is hashed, so editing a hop in a past entry breaks the chain like any other edit. `make trace ID=<agent>` returns every entry where that agent appears at any hop, whoever it was acting for.
+
+**What the chain does not do.** It does not widen access: entitlements are the subject's groups, and the actors are recorded, not consulted. It is only as good as the issuer: ControlPlane verifies and records the chain the identity provider signed, it does not perform the token exchange, so an agent that forwards a user's token unchanged still looks like the user. And it records who acted, not who approved: the only approval in an entry is the policy `rule_id`. A human sign-off has no verified source here yet, and a field anyone could fill in would be a claim, not evidence.
 
 **Appends are serialized** with a table lock. Two concurrent writers reading the same tail hash would produce two entries claiming the same predecessor, and the chain would be unverifiable through that point. Appends are rare relative to reads, so the contention is acceptable here; a high-throughput deployment would build the chain with a single writer instead.
 

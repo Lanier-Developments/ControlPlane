@@ -91,6 +91,13 @@ Full runs: `docs/baseline-phase2.json` (naive) and `docs/phase4-enforced.json` (
 
 **[docs/FINDINGS.md](docs/FINDINGS.md)** has the longer write-up: what each measurement
 turned out to mean, the three checks a green gate has to survive, and what is still open.
+**[docs/govern-the-model-call.md](docs/govern-the-model-call.md)** is the distilled
+version — eight lessons, each with the measurement that earned it — published
+[on dev.to](https://dev.to/kevin_mcallorum_1eb5d1630/govern-the-model-call-fj3).
+**[USE_CASES.md](USE_CASES.md)** lists where these guarantees are worth having and how
+far each use is from working today; the first of them is served end to end by
+[control-plane-web](https://github.com/Lanier-Developments/control-plane-web), the
+sibling front-end repo.
 
 ## Roadmap
 
@@ -491,23 +498,31 @@ Permissions, routing, cost and evidence — without reading any code.
 ```
 corpus/SPEC.md        synthetic company, personas, frontmatter schema, deliberate traps
 corpus/seed/          72 documents across six departments, ~154 chunks
+corpus/redteam/       poisoned fixtures, read from disk at test time, never ingested
 db/schema.sql         owned schema, RLS policies, rag_app role, gateway and ledger tables
 db/init.sql           same content, runs once on a fresh volume
 policy/models.yaml    model registry: providers, tiers, ceilings, rates, status
-policy/routing.yaml   routing rules, evaluated in order, ending in a deny; budgets
+policy/routing.yaml   routing rules, evaluated in order, ending in a deny;
+                      steering, health and budget sections
 policy/prompts.yaml   prompt registry pins: version + sha256 per prompt, gated by policy-test
 evals/golden.yaml     47 items across 12 categories
 evals/personas.yaml   persona -> groups (identity provider stand-in)
 evals/baseline.yaml   ratchet: known failures with reasons and fix phase
 evals/redteam-baseline.yaml  red team ratchet: accepted findings per model, with reasons
+USE_CASES.md          where the guarantees fit, and how far each use is from real
 docs/FINDINGS.md      what the measurements turned out to mean
+docs/govern-the-model-call.md  the distilled write-up, published on dev.to
 docs/console.png      console screenshot
 docs/*.xlsx           red team comparison workbooks
 docs/*.json           preserved eval runs: naive baseline and enforced
 infra/                one-time cloud setup: GitHub OIDC -> Bedrock role, exact and scoped
-.github/workflows/    policy job, repo-meta job, then eval-gate (retrieval blocks,
-                      full advisory, red team gated nightly by its baseline)
-src/provenance/       config, db, identity, store, ingest, watch, retrieval, chain,
-                      gateway, registry, evidence, audit, evals, compare, usage,
-                      rls_test, policy_test, repo_meta_check, api
+tests/                auth-test suite: token verification, CLI identity, anchor
+                      signing, evidence payload — no database, no model
+.github/workflows/    eval-gate.yml: policy, auth and repo-meta jobs, then the blocking
+                      retrieval tier; eval-full.yml: nightly full tier (advisory) and
+                      red team (gated by its baseline), local model and Bedrock
+src/provenance/       config, db, identity, auth, store, ingest, watch, retrieval,
+                      chain, prompts, gateway, registry, evidence, anchor, audit,
+                      evals, judge, redteam, compare, usage, rls_test, policy_test,
+                      repo_meta_check, demo, api, console.html
 ```
